@@ -214,6 +214,14 @@ service cloud.firestore {
     }
 
     // ──────────────────────────────────────────────────
+    // Mail Queue (for Trigger Email Extension)
+    // ──────────────────────────────────────────────────
+    match /mail/{mailId} {
+      allow create: if isAuthenticated() && (isAdmin() || isSupervisor());
+      allow read, update, delete: if false;
+    }
+
+    // ──────────────────────────────────────────────────
     // Helper: check only specified fields were updated
     // ──────────────────────────────────────────────────
     function onlyUpdatedFields(allowedFields) {
