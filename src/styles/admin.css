@@ -1,0 +1,331 @@
+/* ============================================================
+   Varchaz — Admin Panel Styles
+   ============================================================ */
+
+/* ─── Admin Layout ───────────────────────────────────────── */
+.admin-page {
+  animation: fadeIn var(--v-transition-base);
+}
+
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--v-space-4);
+  margin-bottom: var(--v-space-8);
+}
+
+.admin-stat-card {
+  background: var(--v-bg-secondary);
+  border: 1px solid var(--v-border-primary);
+  border-radius: var(--v-radius-lg);
+  padding: var(--v-space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-4);
+  transition: all var(--v-transition-base);
+}
+
+.admin-stat-card:hover {
+  box-shadow: var(--v-shadow-md);
+  transform: translateY(-1px);
+}
+
+.admin-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--v-radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.admin-stat-icon.blue {
+  background: var(--v-blue-100);
+  color: var(--v-blue-600);
+}
+[data-theme='dark'] .admin-stat-icon.blue {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--v-blue-400);
+}
+
+.admin-stat-icon.green {
+  background: var(--v-success-light);
+  color: var(--v-success);
+}
+[data-theme='dark'] .admin-stat-icon.green {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.admin-stat-icon.amber {
+  background: var(--v-warning-light);
+  color: var(--v-warning);
+}
+[data-theme='dark'] .admin-stat-icon.amber {
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.admin-stat-icon.red {
+  background: var(--v-danger-light);
+  color: var(--v-danger);
+}
+[data-theme='dark'] .admin-stat-icon.red {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.admin-stat-value {
+  font-size: var(--v-text-2xl);
+  font-weight: 700;
+  color: var(--v-text-primary);
+}
+
+.admin-stat-label {
+  font-size: var(--v-text-xs);
+  color: var(--v-text-secondary);
+  margin-top: 2px;
+}
+
+/* ─── Admin Navigation Cards ─────────────────────────────── */
+.admin-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--v-space-4);
+}
+
+.admin-nav-card {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-4);
+  padding: var(--v-space-5);
+  background: var(--v-bg-secondary);
+  border: 1px solid var(--v-border-primary);
+  border-radius: var(--v-radius-lg);
+  cursor: pointer;
+  transition: all var(--v-transition-base);
+  text-decoration: none;
+  color: var(--v-text-primary);
+}
+
+.admin-nav-card:hover {
+  box-shadow: var(--v-shadow-md);
+  border-color: var(--v-blue-200);
+  transform: translateY(-2px);
+  text-decoration: none;
+}
+
+.admin-nav-card .nav-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--v-radius-lg);
+  background: var(--v-blue-50);
+  color: var(--v-blue-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+[data-theme='dark'] .admin-nav-card .nav-icon {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--v-blue-400);
+}
+
+.admin-nav-card .nav-label {
+  font-weight: 600;
+  font-size: var(--v-text-sm);
+}
+
+.admin-nav-card .nav-desc {
+  font-size: var(--v-text-xs);
+  color: var(--v-text-secondary);
+  margin-top: 2px;
+}
+
+/* ─── CRUD Table Toolbar ─────────────────────────────────── */
+.crud-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--v-space-3);
+  margin-bottom: var(--v-space-4);
+  flex-wrap: wrap;
+}
+
+.crud-search {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-2);
+  flex: 1;
+  max-width: 400px;
+  position: relative;
+}
+
+.crud-search .search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--v-text-tertiary);
+  pointer-events: none;
+}
+
+.crud-search .input-field {
+  padding-left: 36px;
+}
+
+.crud-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-2);
+}
+
+/* ─── Audit Log ──────────────────────────────────────────── */
+.audit-log-entry {
+  display: flex;
+  gap: var(--v-space-3);
+  padding: var(--v-space-3) var(--v-space-4);
+  border-bottom: 1px solid var(--v-border-primary);
+}
+
+.audit-log-entry:last-child {
+  border-bottom: none;
+}
+
+.audit-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--v-blue-500);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.audit-content {
+  flex: 1;
+}
+
+.audit-action {
+  font-size: var(--v-text-sm);
+  font-weight: 500;
+  color: var(--v-text-primary);
+}
+
+.audit-meta {
+  font-size: var(--v-text-xs);
+  color: var(--v-text-tertiary);
+  margin-top: 2px;
+}
+
+.audit-values {
+  display: flex;
+  gap: var(--v-space-4);
+  margin-top: var(--v-space-2);
+  font-size: var(--v-text-xs);
+}
+
+.audit-old {
+  padding: var(--v-space-1) var(--v-space-2);
+  background: var(--v-danger-light);
+  border-radius: var(--v-radius-sm);
+  color: var(--v-danger);
+}
+
+.audit-new {
+  padding: var(--v-space-1) var(--v-space-2);
+  background: var(--v-success-light);
+  border-radius: var(--v-radius-sm);
+  color: #065f46;
+}
+
+[data-theme='dark'] .audit-old {
+  background: rgba(239, 68, 68, 0.1);
+}
+[data-theme='dark'] .audit-new {
+  background: rgba(16, 185, 129, 0.1);
+  color: #6ee7b7;
+}
+
+/* ─── Hierarchy Tree ─────────────────────────────────────── */
+.hierarchy-tree {
+  padding: var(--v-space-2) 0;
+}
+
+.hierarchy-node {
+  padding: var(--v-space-2) 0;
+}
+
+.hierarchy-node-content {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-3);
+  padding: var(--v-space-2) var(--v-space-3);
+  border-radius: var(--v-radius-md);
+  cursor: pointer;
+  transition: background var(--v-transition-fast);
+}
+
+.hierarchy-node-content:hover {
+  background: var(--v-bg-hover);
+}
+
+.hierarchy-children {
+  margin-left: var(--v-space-8);
+  border-left: 1px dashed var(--v-border-primary);
+  padding-left: var(--v-space-4);
+}
+
+.hierarchy-toggle {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--v-text-tertiary);
+  transition: transform var(--v-transition-fast);
+}
+
+.hierarchy-toggle.open {
+  transform: rotate(90deg);
+}
+
+/* ─── Product Master Form ────────────────────────────────── */
+.product-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-4);
+}
+
+.product-form .input-group {
+  gap: var(--v-space-2);
+}
+
+/* ─── Settings Form ──────────────────────────────────────── */
+.settings-section {
+  margin-bottom: var(--v-space-8);
+}
+
+.settings-section-title {
+  font-size: var(--v-text-md);
+  font-weight: 600;
+  color: var(--v-text-primary);
+  margin-bottom: var(--v-space-4);
+  padding-bottom: var(--v-space-2);
+  border-bottom: 1px solid var(--v-border-primary);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--v-space-3) 0;
+  gap: var(--v-space-4);
+}
+
+.settings-row-label {
+  font-size: var(--v-text-sm);
+  font-weight: 500;
+}
+
+.settings-row-desc {
+  font-size: var(--v-text-xs);
+  color: var(--v-text-tertiary);
+  margin-top: 2px;
+}

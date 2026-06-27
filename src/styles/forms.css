@@ -1,0 +1,238 @@
+/* ============================================================
+   Varchaz — Form Styles
+   ============================================================ */
+
+/* ─── Form Page Layout ───────────────────────────────────── */
+.form-page {
+  animation: fadeIn var(--v-transition-base);
+}
+
+.form-page-header {
+  margin-bottom: var(--v-space-6);
+}
+
+.form-page-header h1 {
+  font-size: var(--v-text-xl);
+  font-weight: 700;
+  color: var(--v-text-primary);
+}
+
+.form-page-header p {
+  font-size: var(--v-text-sm);
+  color: var(--v-text-secondary);
+  margin-top: var(--v-space-1);
+}
+
+/* ─── Sales Entry Form ───────────────────────────────────── */
+.sales-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-3);
+}
+
+.sales-form-row {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-3);
+  padding: var(--v-space-3) var(--v-space-4);
+  background: var(--v-bg-secondary);
+  border: 1px solid var(--v-border-primary);
+  border-radius: var(--v-radius-lg);
+  transition: all var(--v-transition-fast);
+}
+
+.sales-form-row:hover {
+  border-color: var(--v-border-secondary);
+}
+
+.sales-form-row:focus-within {
+  border-color: var(--v-border-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.sales-form-row .product-name {
+  flex: 1;
+  font-size: var(--v-text-sm);
+  font-weight: 500;
+  min-width: 0;
+}
+
+.sales-form-row .product-name .truncate {
+  display: block;
+}
+
+.sales-form-row .sales-input {
+  width: 120px;
+  padding: var(--v-space-2) var(--v-space-3);
+  background: var(--v-bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: var(--v-radius-md);
+  text-align: right;
+  font-size: var(--v-text-base);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: all var(--v-transition-fast);
+}
+
+.sales-form-row .sales-input:focus {
+  background: var(--v-bg-secondary);
+  border-color: var(--v-border-focus);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.sales-form-row .sales-input::placeholder {
+  color: var(--v-text-tertiary);
+  font-weight: 400;
+}
+
+/* ─── Plan Entry Form ────────────────────────────────────── */
+.plan-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-3);
+}
+
+.plan-form-row {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: var(--v-space-3);
+  align-items: center;
+  padding: var(--v-space-3) var(--v-space-4);
+  background: var(--v-bg-secondary);
+  border: 1px solid var(--v-border-primary);
+  border-radius: var(--v-radius-lg);
+  transition: all var(--v-transition-fast);
+}
+
+.plan-form-row:hover {
+  border-color: var(--v-border-secondary);
+}
+
+.plan-form-row:focus-within {
+  border-color: var(--v-border-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.plan-form-row .product-label {
+  font-size: var(--v-text-sm);
+  font-weight: 500;
+}
+
+.plan-form-row .plan-input {
+  width: 100%;
+  padding: var(--v-space-2) var(--v-space-3);
+  background: var(--v-bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: var(--v-radius-md);
+  text-align: right;
+  font-size: var(--v-text-base);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: all var(--v-transition-fast);
+}
+
+.plan-form-row .plan-input:focus {
+  background: var(--v-bg-secondary);
+  border-color: var(--v-border-focus);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.plan-form-row.locked {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.plan-form-row.locked::after {
+  content: '🔒';
+  margin-left: var(--v-space-2);
+  font-size: var(--v-text-xs);
+}
+
+/* ─── Plan Window Alert ──────────────────────────────────── */
+.plan-window-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-3);
+  padding: var(--v-space-3) var(--v-space-4);
+  background: var(--v-info-light);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: var(--v-radius-lg);
+  margin-bottom: var(--v-space-4);
+  font-size: var(--v-text-sm);
+  color: var(--v-blue-800);
+}
+
+[data-theme='dark'] .plan-window-alert {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: var(--v-blue-300);
+}
+
+/* ─── Form Footer ────────────────────────────────────────── */
+.form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--v-space-4);
+  margin-top: var(--v-space-4);
+  border-top: 1px solid var(--v-border-primary);
+  gap: var(--v-space-3);
+}
+
+.form-footer .form-total {
+  font-size: var(--v-text-sm);
+  color: var(--v-text-secondary);
+}
+
+.form-footer .form-total strong {
+  font-size: var(--v-text-lg);
+  color: var(--v-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .form-footer {
+    flex-direction: column;
+    gap: var(--v-space-3);
+  }
+
+  .form-footer .btn {
+    width: 100%;
+  }
+
+  .sales-form-row .sales-input,
+  .plan-form-row .plan-input {
+    width: 100px;
+  }
+}
+
+/* ─── Repeat Plan Dialog ─────────────────────────────────── */
+.repeat-plan-preview {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: var(--v-space-4) 0;
+}
+
+.repeat-plan-item {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--v-space-2) 0;
+  border-bottom: 1px solid var(--v-border-primary);
+  font-size: var(--v-text-sm);
+}
+
+.repeat-plan-item:last-child {
+  border-bottom: none;
+}
+
+.repeat-plan-item .product {
+  color: var(--v-text-primary);
+}
+
+.repeat-plan-item .value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--v-blue-600);
+}
