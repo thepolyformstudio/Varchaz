@@ -45,18 +45,42 @@ export default function ProductSelectionPage() {
     finally { setSaving(false); }
   };
 
+  // Group products by category
+  const categoriesMap: Record<string, Product[]> = {};
+  products.forEach(p => {
+    const cat = p.category || 'General';
+    if (!categoriesMap[cat]) {
+      categoriesMap[cat] = [];
+    }
+    categoriesMap[cat].push(p);
+  });
+
+  const sortedCategories = Object.keys(categoriesMap).sort();
+
   if (loading) return <LoadingSpinner />;
 
   return (
     <div className="form-page" id="product-selection-page">
       <PageHeader title="Active Products for Team" subtitle={`Select which products your team reports against (${selected.size} of ${products.length} selected)`} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--v-space-2)' }}>
-        {products.map(p => (
-          <label key={p.productId} className="plan-form-row" style={{ cursor: 'pointer', gridTemplateColumns: 'auto 1fr' }}>
-            <input type="checkbox" checked={selected.has(p.productId)} onChange={() => toggle(p.productId)} style={{ width: 18, height: 18, accentColor: 'var(--v-blue-600)' }} />
-            <span className="product-label">{p.name}</span>
-          </label>
-        ))}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--v-space-4)' }}>
+        {sortedCategories.map(catName => {
+          const catProducts = categoriesMap[catName];
+          return (
+            <div key={catName} className="category-group-container" style={{ border: '1px solid var(--v-border-primary)', borderRadius: 'var(--v-r-md)', overflow: 'hidden', backgroundColor: 'var(--v-bg-primary)' }}>
+              <div className="category-group-header" style={{ backgroundColor: 'var(--v-bg-secondary)', padding: 'var(--v-space-2) var(--v-space-3)', borderBottom: '1px solid var(--v-border-primary)', color: 'var(--v-blue-600)', fontWeight: 600, fontSize: 'var(--v-text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {catName}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {catProducts.map(p => (
+                  <label key={p.productId} className="plan-form-row" style={{ cursor: 'pointer', gridTemplateColumns: 'auto 1fr', borderBottom: '1px solid var(--v-border-primary)', margin: 0, borderRadius: 0, borderTop: 0, paddingLeft: 'var(--v-space-3)' }}>
+                    <input type="checkbox" checked={selected.has(p.productId)} onChange={() => toggle(p.productId)} style={{ width: 18, height: 18, accentColor: 'var(--v-blue-600)' }} />
+                    <span className="product-label" style={{ fontWeight: 500 }}>{p.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
       <div className="form-footer">
         <span style={{ fontSize: 'var(--v-text-sm)', color: 'var(--v-text-secondary)' }}>{selected.size} products selected</span>

@@ -63,6 +63,18 @@ export default function PlanOverridePage() {
     finally { setSaving(null); }
   };
 
+  // Group products by category
+  const categoriesMap: Record<string, Product[]> = {};
+  products.forEach(p => {
+    const cat = p.category || 'General';
+    if (!categoriesMap[cat]) {
+      categoriesMap[cat] = [];
+    }
+    categoriesMap[cat].push(p);
+  });
+
+  const sortedCategories = Object.keys(categoriesMap).sort();
+
   if (loading) return <LoadingSpinner text="Loading plans..." />;
 
   return (
@@ -80,15 +92,27 @@ export default function PlanOverridePage() {
               {expandedUser === u.uid ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </div>
             {expandedUser === u.uid && (
-              <div style={{ padding: '0 var(--v-space-4) var(--v-space-4)', borderTop: '1px solid var(--v-border-primary)' }}>
-                <div className="plan-form" style={{ marginTop: 'var(--v-space-3)' }}>
-                  {products.map(p => (
-                    <div className="plan-form-row" key={p.productId}>
-                      <span className="product-label">{p.name}</span>
-                      <input type="text" inputMode="numeric" className="plan-input" placeholder="0"
-                        value={values[u.uid]?.[p.productId] || ''} onChange={e => handleChange(u.uid, p.productId, e.target.value)} />
-                    </div>
-                  ))}
+              <div style={{ padding: 'var(--v-space-4)', borderTop: '1px solid var(--v-border-primary)' }}>
+                <div className="plan-form" style={{ marginTop: 0, display: 'flex', flexDirection: 'column', gap: 'var(--v-space-3)' }}>
+                  {sortedCategories.map(catName => {
+                    const catProducts = categoriesMap[catName];
+                    return (
+                      <div key={catName} style={{ border: '1px solid var(--v-border-primary)', borderRadius: 'var(--v-r-md)', overflow: 'hidden', backgroundColor: 'var(--v-bg-primary)' }}>
+                        <div style={{ backgroundColor: 'var(--v-bg-secondary)', padding: 'var(--v-space-2) var(--v-space-3)', borderBottom: '1px solid var(--v-border-primary)', color: 'var(--v-blue-600)', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {catName}
+                        </div>
+                        <div>
+                          {catProducts.map(p => (
+                            <div className="plan-form-row" key={p.productId} style={{ borderBottom: '1px solid var(--v-border-primary)', margin: 0, borderRadius: 0, borderTop: 0 }}>
+                              <span className="product-label" style={{ paddingLeft: 'var(--v-space-3)' }}>{p.name}</span>
+                              <input type="text" inputMode="numeric" className="plan-input" placeholder="0"
+                                value={values[u.uid]?.[p.productId] || ''} onChange={e => handleChange(u.uid, p.productId, e.target.value)} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--v-space-3)' }}>
                   <button className="btn btn-primary btn-sm" onClick={() => handleSave(u.uid)} disabled={saving === u.uid}>

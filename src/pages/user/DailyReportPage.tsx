@@ -82,6 +82,18 @@ export default function DailyReportPage() {
 
   if (loading) return <LoadingSpinner text="Loading products..." />;
 
+  // Group products by category
+  const categoriesMap: Record<string, Product[]> = {};
+  products.forEach(p => {
+    const cat = p.category || 'General';
+    if (!categoriesMap[cat]) {
+      categoriesMap[cat] = [];
+    }
+    categoriesMap[cat].push(p);
+  });
+
+  const sortedCategories = Object.keys(categoriesMap).sort();
+
   return (
     <div className="form-page" id="daily-report-page">
       <PageHeader
@@ -99,25 +111,37 @@ export default function DailyReportPage() {
         </div>
       )}
 
-      <div className="sales-form">
-        {products.map(product => (
-          <div className="sales-form-row" key={product.productId}>
-            <div className="product-name">
-              <span className="truncate">{product.name}</span>
+      <div className="sales-form" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--v-space-4)' }}>
+        {sortedCategories.map(catName => {
+          const catProducts = categoriesMap[catName];
+          return (
+            <div key={catName} className="category-group-container" style={{ border: '1px solid var(--v-border-primary)', borderRadius: 'var(--v-r-md)', overflow: 'hidden', backgroundColor: 'var(--v-bg-primary)' }}>
+              <div className="category-group-header" style={{ backgroundColor: 'var(--v-bg-secondary)', padding: 'var(--v-space-2) var(--v-space-3)', borderBottom: '1px solid var(--v-border-primary)', color: 'var(--v-blue-600)', fontWeight: 600, fontSize: 'var(--v-text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {catName}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {catProducts.map(product => (
+                  <div className="sales-form-row" key={product.productId} style={{ borderBottom: '1px solid var(--v-border-primary)', margin: 0, borderRadius: 0, borderTop: 0 }}>
+                    <div className="product-name" style={{ paddingLeft: 'var(--v-space-3)' }}>
+                      <span className="truncate">{product.name}</span>
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      className="sales-input"
+                      placeholder="0"
+                      value={values[product.productId] || ''}
+                      onChange={e => handleChange(product.productId, e.target.value)}
+                      disabled={isFutureDate(date)}
+                      id={`sales-${product.productId}`}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              className="sales-input"
-              placeholder="0"
-              value={values[product.productId] || ''}
-              onChange={e => handleChange(product.productId, e.target.value)}
-              disabled={isFutureDate(date)}
-              id={`sales-${product.productId}`}
-            />
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="form-footer">

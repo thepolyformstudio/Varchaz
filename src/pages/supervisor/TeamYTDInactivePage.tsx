@@ -87,17 +87,32 @@ export default function TeamYTDInactivePage() {
                 </span>
               </div>
               <div style={{ padding: 'var(--v-space-2) var(--v-space-4)' }}>
-                {inactiveProducts.map(p => (
-                  <div key={p.productId} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: 'var(--v-space-2) 0',
-                    borderBottom: '1px solid var(--v-border-primary)',
-                    fontSize: 'var(--v-text-sm)'
-                  }}>
-                    <span>{p.name}</span>
-                    <span className="badge badge-danger" style={{ fontSize: '10px' }}>No Sales</span>
-                  </div>
-                ))}
+                {(() => {
+                  const userCatMap: Record<string, Product[]> = {};
+                  inactiveProducts.forEach(p => {
+                    const cat = p.category || 'General';
+                    if (!userCatMap[cat]) userCatMap[cat] = [];
+                    userCatMap[cat].push(p);
+                  });
+                  return Object.keys(userCatMap).sort().map(catName => (
+                    <div key={catName} style={{ marginBottom: 'var(--v-space-2)' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--v-blue-600)', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.05em', marginTop: 'var(--v-space-2)' }}>
+                        {catName}
+                      </div>
+                      {userCatMap[catName].map(p => (
+                        <div key={p.productId} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: 'var(--v-space-2) 0 var(--v-space-2) var(--v-space-3)',
+                          borderBottom: '1px solid var(--v-border-primary)',
+                          fontSize: 'var(--v-text-sm)'
+                        }}>
+                          <span>{p.name}</span>
+                          <span className="badge badge-danger" style={{ fontSize: '10px' }}>No Sales</span>
+                        </div>
+                      ))}
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
           ))}

@@ -38,6 +38,18 @@ export default function YTDInactivePage() {
     finally { setLoading(false); }
   }
 
+  // Group products by category
+  const categoriesMap: Record<string, Product[]> = {};
+  inactive.forEach(p => {
+    const cat = p.category || 'General';
+    if (!categoriesMap[cat]) {
+      categoriesMap[cat] = [];
+    }
+    categoriesMap[cat].push(p);
+  });
+
+  const sortedCategories = Object.keys(categoriesMap).sort();
+
   if (loading) return <LoadingSpinner text="Loading..." />;
 
   const fyLabel = getFYLabel(appUser?.financialYear || 'apr-mar');
@@ -50,15 +62,32 @@ export default function YTDInactivePage() {
       ) : (
         <div className="data-table-wrapper">
           <table className="data-table">
-            <thead><tr><th>#</th><th>Product</th><th>Status</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Status</th>
+              </tr>
+            </thead>
             <tbody>
-              {inactive.map((p, i) => (
-                <tr key={p.productId}>
-                  <td>{i + 1}</td>
-                  <td>{p.name}</td>
-                  <td><span className="badge badge-danger">No Sales</span></td>
-                </tr>
-              ))}
+              {sortedCategories.map(catName => {
+                const catProducts = categoriesMap[catName];
+                return (
+                  <React.Fragment key={catName}>
+                    {/* Category Header Row */}
+                    <tr className="category-header-row" style={{ backgroundColor: 'var(--v-bg-secondary)', fontWeight: 600 }}>
+                      <td colSpan={2} style={{ color: 'var(--v-blue-600)', padding: 'var(--v-space-2) var(--v-space-3)', fontSize: 'var(--v-text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {catName}
+                      </td>
+                    </tr>
+                    {catProducts.map(p => (
+                      <tr key={p.productId}>
+                        <td style={{ paddingLeft: 'var(--v-space-6)' }}>{p.name}</td>
+                        <td><span className="badge badge-danger">No Sales</span></td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
