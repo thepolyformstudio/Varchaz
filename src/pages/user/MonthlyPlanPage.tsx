@@ -12,6 +12,7 @@ import { fetchActiveProducts, fetchSupervisorProducts } from '../../services/pro
 import { fetchMonthlyPlan, saveMonthlyPlan } from '../../services/planService';
 import type { Product } from '../../types';
 import { Save, Copy, Info } from 'lucide-react';
+import { sendNotification } from '../../services/notificationService';
 
 export default function MonthlyPlanPage() {
   const { appUser } = useAuth();
@@ -77,6 +78,7 @@ export default function MonthlyPlanPage() {
       });
       await saveMonthlyPlan(appUser.uid, month, productsMap, appUser.uid);
       showToast('success', `Plan saved for ${displayMonth(month)}`);
+      sendNotification('Monthly Plan Saved ✓', `Your monthly target plan for ${displayMonth(month)} has been updated.`);
     } catch {
       showToast('error', 'Failed to save plan');
     } finally {

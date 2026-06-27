@@ -13,6 +13,7 @@ import { fetchActiveProducts, fetchSupervisorProducts } from '../../services/pro
 import { fetchDailySales, saveDailySales } from '../../services/salesService';
 import type { Product } from '../../types';
 import { Save } from 'lucide-react';
+import { sendNotification } from '../../services/notificationService';
 
 export default function DailyReportPage() {
   const { appUser } = useAuth();
@@ -70,6 +71,7 @@ export default function DailyReportPage() {
       });
       await saveDailySales(appUser.uid, date, productsMap, appUser.supervisorId || '');
       showToast('success', `Daily report saved for ${displayDate(date)}`);
+      sendNotification('Daily Report Saved ✓', `Your daily report for ${displayDate(date)} has been saved successfully.`);
     } catch (err) {
       console.error('Failed to save daily report:', err);
       showToast('error', 'Failed to save daily report');

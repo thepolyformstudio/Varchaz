@@ -14,6 +14,7 @@ import {
   UserCheck, Layers, FileBarChart, Archive, BookOpen, Smartphone
 } from 'lucide-react';
 import { CountBadge } from '../shared';
+import { startDailyReportScheduler } from '../../services/notificationService';
 
 export function AppShell() {
   const { appUser, logout } = useAuth();
@@ -44,6 +45,13 @@ export function AppShell() {
       window.removeEventListener('beforeinstallprompt', handler);
     };
   }, []);
+
+  useEffect(() => {
+    if (appUser && appUser.role === 'user') {
+      const stopScheduler = startDailyReportScheduler(appUser.uid);
+      return () => stopScheduler();
+    }
+  }, [appUser]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
