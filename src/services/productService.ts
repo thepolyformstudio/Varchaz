@@ -14,7 +14,14 @@ const SUPERVISOR_PRODUCTS_COL = 'supervisorProducts';
 /** Fetch all global products */
 export async function fetchAllProducts(): Promise<Product[]> {
   const snap = await getDocs(collection(db, PRODUCTS_COL));
-  const prods = snap.docs.map(d => ({ productId: d.id, ...d.data() } as Product));
+  const prods = snap.docs.map(d => {
+    const data = d.data();
+    return {
+      productId: d.id,
+      ...data,
+      category: data.category || 'General'
+    } as Product;
+  });
   return prods.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 }
 
@@ -25,11 +32,12 @@ export async function fetchActiveProducts(): Promise<Product[]> {
 }
 
 /** Create a new product (admin only) */
-export async function createProduct(name: string, description: string, createdBy: string): Promise<string> {
+export async function createProduct(name: string, description: string, category: string, createdBy: string): Promise<string> {
   const docRef = doc(collection(db, PRODUCTS_COL));
   const product: Omit<Product, 'productId'> = {
     name,
     description,
+    category: category || 'General',
     isActive: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

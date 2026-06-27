@@ -53,6 +53,7 @@ export function buildMTDPerformance(
       return {
         productId: product.productId,
         productName: product.name,
+        category: product.category || 'General',
         plan: planValue,
         achievement: achievementValue,
         achievementPct: pct,
@@ -90,6 +91,7 @@ export function buildYTDPerformance(
       return {
         productId: product.productId,
         productName: product.name,
+        category: product.category || 'General',
         plan: planValue,
         achievement: achievementValue,
         achievementPct: pct,
@@ -113,6 +115,7 @@ export function buildDayPerformance(
       return {
         productId: product.productId,
         productName: product.name,
+        category: product.category || 'General',
         plan: 0,
         achievement: achievementValue,
         achievementPct: 0,

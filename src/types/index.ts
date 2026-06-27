@@ -34,6 +34,7 @@ export interface Product {
   productId: string;
   name: string;
   description: string;
+  category: string;
   isActive: boolean;
   createdAt: any;
   updatedAt: any;
@@ -123,6 +124,7 @@ export interface AppSettings {
 export interface ProductPerformance {
   productId: string;
   productName: string;
+  category: string;
   plan: number;
   achievement: number;
   achievementPct: number;

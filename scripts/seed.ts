@@ -21,16 +21,16 @@ async function seed() {
 
   // ── 1. Create Products ──
   const products = [
-    { name: 'Product Alpha', description: 'Premium offering', isActive: true },
-    { name: 'Product Beta', description: 'Standard line', isActive: true },
-    { name: 'Product Gamma', description: 'Economy segment', isActive: true },
-    { name: 'Product Delta', description: 'New launch', isActive: true },
-    { name: 'Product Epsilon', description: 'Enterprise solution', isActive: true },
-    { name: 'Product Zeta', description: 'Bundled package', isActive: true },
-    { name: 'Product Eta', description: 'Seasonal special', isActive: true },
-    { name: 'Product Theta', description: 'Regional variant', isActive: true },
-    { name: 'Product Iota', description: 'Legacy product', isActive: false },
-    { name: 'Product Kappa', description: 'OEM supply', isActive: true },
+    { name: 'Product Alpha', description: 'Premium offering', category: 'Tablets', isActive: true },
+    { name: 'Product Beta', description: 'Standard line', category: 'Syrups', isActive: true },
+    { name: 'Product Gamma', description: 'Economy segment', category: 'Syrups', isActive: true },
+    { name: 'Product Delta', description: 'New launch', category: 'Tablets', isActive: true },
+    { name: 'Product Epsilon', description: 'Enterprise solution', category: 'Capsules', isActive: true },
+    { name: 'Product Zeta', description: 'Bundled package', category: 'Capsules', isActive: true },
+    { name: 'Product Eta', description: 'Seasonal special', category: 'Syrups', isActive: true },
+    { name: 'Product Theta', description: 'Regional variant', category: 'Injections', isActive: true },
+    { name: 'Product Iota', description: 'Legacy product', category: 'Injections', isActive: false },
+    { name: 'Product Kappa', description: 'OEM supply', category: 'Injections', isActive: true },
   ];
 
   console.log('📦 Creating products...');

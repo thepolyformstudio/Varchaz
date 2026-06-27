@@ -119,11 +119,13 @@ export function ProductMasterPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newCategory, setNewCategory] = useState('');
   const [adding, setAdding] = useState(false);
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
+  const [editCategory, setEditCategory] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { load(); }, []);
@@ -133,9 +135,9 @@ export function ProductMasterPage() {
     if (!newName.trim() || !appUser) return;
     setAdding(true);
     try {
-      await createProduct(newName.trim(), newDesc.trim(), appUser.uid);
+      await createProduct(newName.trim(), newDesc.trim(), newCategory.trim() || 'General', appUser.uid);
       showToast('success', `Product "${newName}" added`);
-      setNewName(''); setNewDesc(''); setShowAdd(false);
+      setNewName(''); setNewDesc(''); setNewCategory(''); setShowAdd(false);
       load();
     } catch { showToast('error', 'Failed to add product'); }
     finally { setAdding(false); }
@@ -145,6 +147,7 @@ export function ProductMasterPage() {
     setEditingProduct(p);
     setEditName(p.name);
     setEditDesc(p.description || '');
+    setEditCategory(p.category || 'General');
   };
 
   const handleEditSave = async () => {
@@ -153,7 +156,8 @@ export function ProductMasterPage() {
     try {
       await updateProduct(editingProduct.productId, {
         name: editName.trim(),
-        description: editDesc.trim()
+        description: editDesc.trim(),
+        category: editCategory.trim() || 'General'
       });
       showToast('success', 'Product updated successfully');
       setEditingProduct(null);
@@ -192,6 +196,10 @@ export function ProductMasterPage() {
               <input className="input-field" value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g., Product A" />
             </div>
             <div className="input-group">
+              <label className="input-label">Category</label>
+              <input className="input-field" value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="e.g., Tablets, Syrups" />
+            </div>
+            <div className="input-group">
               <label className="input-label">Description</label>
               <input className="input-field" value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Optional description" />
             </div>
@@ -214,6 +222,10 @@ export function ProductMasterPage() {
               <input className="input-field" value={editName} onChange={e => setEditName(e.target.value)} placeholder="e.g., Product A" />
             </div>
             <div className="input-group">
+              <label className="input-label">Category</label>
+              <input className="input-field" value={editCategory} onChange={e => setEditCategory(e.target.value)} placeholder="e.g., Tablets, Syrups" />
+            </div>
+            <div className="input-group">
               <label className="input-label">Description</label>
               <input className="input-field" value={editDesc} onChange={e => setEditDesc(e.target.value)} placeholder="Optional description" />
             </div>
@@ -226,12 +238,13 @@ export function ProductMasterPage() {
 
       <div className="data-table-wrapper">
         <table className="data-table">
-          <thead><tr><th>#</th><th>Product Name</th><th>Description</th><th>Status</th><th>Toggle</th><th className="text-center">Edit</th></tr></thead>
+          <thead><tr><th>#</th><th>Product Name</th><th>Category</th><th>Description</th><th>Status</th><th>Toggle</th><th className="text-center">Edit</th></tr></thead>
           <tbody>
             {products.map((p, i) => (
               <tr key={p.productId}>
                 <td>{i + 1}</td>
                 <td style={{ fontWeight: 500 }}>{p.name}</td>
+                <td><span className="badge badge-neutral" style={{ fontSize: 'var(--v-text-xs)' }}>{p.category || 'General'}</span></td>
                 <td style={{ color: 'var(--v-text-secondary)', fontSize: 'var(--v-text-xs)' }}>{p.description || '—'}</td>
                 <td><span className={`badge ${p.isActive ? 'badge-success' : 'badge-neutral'}`}>{p.isActive ? 'Active' : 'Inactive'}</span></td>
                 <td>

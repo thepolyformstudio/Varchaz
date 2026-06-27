@@ -83,12 +83,69 @@ export function performanceToExportData(
     ] : [])
   ];
 
-  const data = performances.map(p => ({
-    product: p.productName,
-    plan: p.hasNoPlan ? 'No Plan' : formatIndianNumber(p.plan),
-    achievement: formatIndianNumber(p.achievement),
-    pct: p.hasNoPlan && p.achievement === 0 ? '0%' : formatPercent(p.achievementPct)
-  }));
+  // Group by category
+  const categoriesMap: Record<string, ProductPerformance[]> = {};
+  performances.forEach(p => {
+    const cat = p.category || 'General';
+    if (!categoriesMap[cat]) {
+      categoriesMap[cat] = [];
+    }
+    categoriesMap[cat].push(p);
+  });
+
+  const sortedCategories = Object.keys(categoriesMap).sort();
+  const data: any[] = [];
+  let grandTotalPlan = 0;
+  let grandTotalAchievement = 0;
+
+  sortedCategories.forEach(catName => {
+    const catProducts = categoriesMap[catName];
+    
+    // Add Category Header Row
+    data.push({
+      product: `CATEGORY: ${catName.toUpperCase()}`,
+      plan: '',
+      achievement: '',
+      pct: ''
+    });
+
+    let catPlan = 0;
+    let catAchievement = 0;
+
+    catProducts.forEach(p => {
+      catPlan += p.plan;
+      catAchievement += p.achievement;
+      grandTotalPlan += p.plan;
+      grandTotalAchievement += p.achievement;
+
+      data.push({
+        product: `  ${p.productName}`, // indented for visual hierarchy
+        plan: p.hasNoPlan ? 'No Plan' : formatIndianNumber(p.plan),
+        achievement: formatIndianNumber(p.achievement),
+        pct: p.hasNoPlan && p.achievement === 0 ? '0%' : formatPercent(p.achievementPct)
+      });
+    });
+
+    // Add Category Subtotal Row
+    const catPct = catPlan > 0 ? (catAchievement / catPlan) * 100 : 0;
+    data.push({
+      product: `  Sub-total (${catName})`,
+      plan: viewType !== 'day' ? formatIndianNumber(catPlan) : '',
+      achievement: formatIndianNumber(catAchievement),
+      pct: viewType !== 'day' ? formatPercent(catPct) : ''
+    });
+  });
+
+  // Add Grand Total Row
+  if (performances.length > 0) {
+    const grandPct = grandTotalPlan > 0 ? (grandTotalAchievement / grandTotalPlan) * 100 : 0;
+    data.push({
+      product: 'GRAND TOTAL',
+      plan: viewType !== 'day' ? formatIndianNumber(grandTotalPlan) : '',
+      achievement: formatIndianNumber(grandTotalAchievement),
+      pct: viewType !== 'day' ? formatPercent(grandPct) : ''
+    });
+  }
 
   return { data, columns };
 }

@@ -73,6 +73,18 @@ export function PerformanceTable({
     }
   };
 
+  // Group products by category
+  const categoriesMap: Record<string, ProductPerformance[]> = {};
+  data.forEach(p => {
+    const cat = p.category || 'General';
+    if (!categoriesMap[cat]) {
+      categoriesMap[cat] = [];
+    }
+    categoriesMap[cat].push(p);
+  });
+
+  const sortedCategories = Object.keys(categoriesMap).sort();
+
   return (
     <div className="data-table-wrapper animate-fade-in">
       {title && (
@@ -102,28 +114,68 @@ export function PerformanceTable({
             </tr>
           </thead>
           <tbody>
-            {data.map(row => (
-              <tr key={row.productId}>
-                <td>{row.productName}</td>
-                {viewType !== 'day' && (
-                  <td className="text-right num-cell">
-                    {row.hasNoPlan ? (
-                      <span className="no-plan-label">No Plan</span>
-                    ) : (
-                      formatIndianNumber(row.plan)
+            {sortedCategories.map(catName => {
+              const catProducts = categoriesMap[catName];
+              const catTotalPlan = catProducts.reduce((s, p) => s + p.plan, 0);
+              const catTotalAchievement = catProducts.reduce((s, p) => s + p.achievement, 0);
+              const catTotalPct = catTotalPlan > 0 ? (catTotalAchievement / catTotalPlan) * 100 : 0;
+
+              return (
+                <React.Fragment key={catName}>
+                  {/* Category Header Row */}
+                  <tr className="category-header-row" style={{ backgroundColor: 'var(--v-bg-secondary)', fontWeight: 600 }}>
+                    <td colSpan={viewType === 'day' ? 2 : 4} style={{ color: 'var(--v-blue-600)', padding: 'var(--v-space-2) var(--v-space-3)', fontSize: 'var(--v-text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {catName}
+                    </td>
+                  </tr>
+
+                  {/* Product Rows in this Category */}
+                  {catProducts.map(row => (
+                    <tr key={row.productId}>
+                      <td style={{ paddingLeft: 'var(--v-space-6)' }}>{row.productName}</td>
+                      {viewType !== 'day' && (
+                        <td className="text-right num-cell">
+                          {row.hasNoPlan ? (
+                            <span className="no-plan-label">No Plan</span>
+                          ) : (
+                            formatIndianNumber(row.plan)
+                          )}
+                        </td>
+                      )}
+                      <td className="text-right num-cell">{formatIndianNumber(row.achievement)}</td>
+                      {viewType !== 'day' && (
+                        <td className={`text-right pct-cell ${getPctClass(row.achievementPct)}`}>
+                          {formatPercent(row.achievementPct)}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+
+                  {/* Category Subtotal Row */}
+                  <tr className="category-subtotal-row" style={{ borderBottom: '2px solid var(--v-border-primary)', fontStyle: 'italic' }}>
+                    <td style={{ paddingLeft: 'var(--v-space-6)', color: 'var(--v-text-secondary)', fontWeight: 500 }}>
+                      Sub-total ({catName})
+                    </td>
+                    {viewType !== 'day' && (
+                      <td className="text-right num-cell" style={{ color: 'var(--v-text-secondary)' }}>
+                        {formatIndianNumber(catTotalPlan)}
+                      </td>
                     )}
-                  </td>
-                )}
-                <td className="text-right num-cell">{formatIndianNumber(row.achievement)}</td>
-                {viewType !== 'day' && (
-                  <td className={`text-right pct-cell ${getPctClass(row.achievementPct)}`}>
-                    {formatPercent(row.achievementPct)}
-                  </td>
-                )}
-              </tr>
-            ))}
+                    <td className="text-right num-cell" style={{ color: 'var(--v-text-secondary)', fontWeight: 600 }}>
+                      {formatIndianNumber(catTotalAchievement)}
+                    </td>
+                    {viewType !== 'day' && (
+                      <td className={`text-right pct-cell ${getPctClass(catTotalPct)}`}>
+                        {formatPercent(catTotalPct)}
+                      </td>
+                    )}
+                  </tr>
+                </React.Fragment>
+              );
+            })}
+
             {data.length > 0 && viewType !== 'day' && (
-              <tr className="grand-total">
+              <tr className="grand-total" style={{ borderTop: '2px solid var(--v-border-primary)' }}>
                 <td><strong>Grand Total</strong></td>
                 <td className="text-right num-cell"><strong>{formatIndianNumber(grandTotalPlan)}</strong></td>
                 <td className="text-right num-cell"><strong>{formatIndianNumber(grandTotalAchievement)}</strong></td>
@@ -133,7 +185,7 @@ export function PerformanceTable({
               </tr>
             )}
             {data.length > 0 && viewType === 'day' && (
-              <tr className="grand-total">
+              <tr className="grand-total" style={{ borderTop: '2px solid var(--v-border-primary)' }}>
                 <td><strong>Grand Total</strong></td>
                 <td className="text-right num-cell"><strong>{formatIndianNumber(grandTotalAchievement)}</strong></td>
               </tr>

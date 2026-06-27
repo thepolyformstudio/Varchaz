@@ -80,21 +80,76 @@ export default function UserDrillDownPage() {
       const performanceData = isMtd ? mtdData : ytdData;
       const title = isMtd ? `MTD Performance — ${displayMonth(getCurrentMonth())}` : `YTD Performance`;
 
-      let tableRows = '';
+      // Group by category
+      const categoriesMap: Record<string, ProductPerformance[]> = {};
       performanceData.forEach(p => {
-        const achievementStr = p.achievement.toLocaleString('en-IN');
-        const planStr = p.plan.toLocaleString('en-IN');
-        const pctStr = p.hasNoPlan ? (p.achievement > 0 ? '100% (No Plan)' : '0%') : `${p.achievementPct.toFixed(1)}%`;
-        
+        const cat = p.category || 'General';
+        if (!categoriesMap[cat]) {
+          categoriesMap[cat] = [];
+        }
+        categoriesMap[cat].push(p);
+      });
+
+      const sortedCategories = Object.keys(categoriesMap).sort();
+      let tableRows = '';
+      let grandTotalPlan = 0;
+      let grandTotalAchievement = 0;
+
+      sortedCategories.forEach(catName => {
+        const catProducts = categoriesMap[catName];
+        const catPlan = catProducts.reduce((s, p) => s + p.plan, 0);
+        const catAchievement = catProducts.reduce((s, p) => s + p.achievement, 0);
+        const catPct = catPlan > 0 ? (catAchievement / catPlan) * 100 : 0;
+
+        grandTotalPlan += catPlan;
+        grandTotalAchievement += catAchievement;
+
+        // Category Header Row
         tableRows += `
-          <tr style="border-bottom: 1px solid #e2e8f0;">
-            <td style="padding: 12px; font-weight: 500; color: #1e293b; text-align: left;">${p.productName}</td>
-            <td style="padding: 12px; text-align: right; color: #475569;">${planStr}</td>
-            <td style="padding: 12px; text-align: right; color: #0f172a; font-weight: 600;">${achievementStr}</td>
-            <td style="padding: 12px; text-align: right; font-weight: 600; color: ${p.achievementPct >= 100 ? '#10b981' : p.achievementPct >= 80 ? '#3b82f6' : p.achievementPct >= 50 ? '#f59e0b' : '#ef4444'};">${pctStr}</td>
+          <tr style="background-color: #f8fafc; font-weight: bold; border-bottom: 2px solid #cbd5e1;">
+            <td colspan="4" style="padding: 8px 12px; color: #2563eb; font-size: 11px; text-transform: uppercase; text-align: left;">${catName}</td>
+          </tr>
+        `;
+
+        // Product Rows
+        catProducts.forEach(p => {
+          const achievementStr = p.achievement.toLocaleString('en-IN');
+          const planStr = p.plan.toLocaleString('en-IN');
+          const pctStr = p.hasNoPlan ? (p.achievement > 0 ? '100% (No Plan)' : '0%') : `${p.achievementPct.toFixed(1)}%`;
+          
+          tableRows += `
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 10px 12px 10px 24px; font-weight: 500; color: #1e293b; text-align: left;">${p.productName}</td>
+              <td style="padding: 10px 12px; text-align: right; color: #475569;">${planStr}</td>
+              <td style="padding: 10px 12px; text-align: right; color: #0f172a; font-weight: 600;">${achievementStr}</td>
+              <td style="padding: 10px 12px; text-align: right; font-weight: 600; color: ${p.achievementPct >= 100 ? '#10b981' : p.achievementPct >= 80 ? '#3b82f6' : p.achievementPct >= 50 ? '#f59e0b' : '#ef4444'};">${pctStr}</td>
+            </tr>
+          `;
+        });
+
+        // Category Subtotal Row
+        tableRows += `
+          <tr style="border-bottom: 2px solid #cbd5e1; font-style: italic; background-color: #fcfcfc;">
+            <td style="padding: 8px 12px 8px 24px; color: #64748b; font-weight: 600; text-align: left;">Sub-total (${catName})</td>
+            <td style="padding: 8px 12px; text-align: right; color: #64748b; font-weight: 600;">${catPlan.toLocaleString('en-IN')}</td>
+            <td style="padding: 8px 12px; text-align: right; color: #64748b; font-weight: 600;">${catAchievement.toLocaleString('en-IN')}</td>
+            <td style="padding: 8px 12px; text-align: right; font-weight: 600; color: ${catPct >= 100 ? '#10b981' : catPct >= 80 ? '#3b82f6' : catPct >= 50 ? '#f59e0b' : '#ef4444'};">${catPct.toFixed(1)}%</td>
           </tr>
         `;
       });
+
+      // Grand Total Row
+      if (performanceData.length > 0) {
+        const grandPct = grandTotalPlan > 0 ? (grandTotalAchievement / grandTotalPlan) * 100 : 0;
+        tableRows += `
+          <tr style="font-weight: bold; background-color: #f1f5f9; border-top: 2px solid #94a3b8;">
+            <td style="padding: 12px; color: #0f172a; text-align: left;">GRAND TOTAL</td>
+            <td style="padding: 12px; text-align: right; color: #0f172a;">${grandTotalPlan.toLocaleString('en-IN')}</td>
+            <td style="padding: 12px; text-align: right; color: #0f172a;">${grandTotalAchievement.toLocaleString('en-IN')}</td>
+            <td style="padding: 12px; text-align: right; color: ${grandPct >= 100 ? '#10b981' : grandPct >= 80 ? '#3b82f6' : grandPct >= 50 ? '#f59e0b' : '#ef4444'};">${grandPct.toFixed(1)}%</td>
+          </tr>
+        `;
+      }
 
       const remarksHtml = remarks.trim() 
         ? `
