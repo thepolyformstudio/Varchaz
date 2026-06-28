@@ -2,6 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // One-time service worker purge — removes stale SW caches that serve broken builds.
+      // Increment this version number whenever you need to force a cache bust.
+      var SW_PURGE_VERSION = '2';
+      (function() {
+        if (!('serviceWorker' in navigator)) return;
+        try {
+          var purged = sessionStorage.getItem('sw-purged');
+          if (purged === SW_PURGE_VERSION) return; // already purged this session
+          sessionStorage.setItem('sw-purged', SW_PURGE_VERSION);
+        } catch(e) {}
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          var hadSW = registrations.length > 0;
+          var promises = registrations.map(function(r) { return r.unregister(); });
+          if (typeof caches !== 'undefined') {
+            promises.push(
+              caches.keys().then(function(names) {
+                return Promise.all(names.map(function(n) { return caches.delete(n); }));
+              })
+            );
+          }
+          if (hadSW) {
+            Promise.all(promises).then(function() {
+              window.location.reload();
+            });
+          }
+        });
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/varchaz-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#0f172a" />
@@ -14,41 +43,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <title>Varchaz — Daily Sales Reporting</title>
-    <script>
-      window.addEventListener('error', function(e) {
-        var errorDiv = document.createElement('div');
-        errorDiv.style.position = 'fixed';
-        errorDiv.style.top = '0';
-        errorDiv.style.left = '0';
-        errorDiv.style.width = '100%';
-        errorDiv.style.background = '#ef4444';
-        errorDiv.style.color = '#ffffff';
-        errorDiv.style.padding = '12px';
-        errorDiv.style.zIndex = '999999';
-        errorDiv.style.fontFamily = 'monospace';
-        errorDiv.style.fontSize = '12px';
-        errorDiv.style.wordBreak = 'break-all';
-        errorDiv.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1)';
-        errorDiv.innerText = 'Launch Error: ' + e.message + '\nFile: ' + e.filename + ':' + e.lineno + ':' + e.colno + '\nStack: ' + (e.error ? e.error.stack : 'N/A');
-        document.documentElement.appendChild(errorDiv);
-      });
-      window.addEventListener('unhandledrejection', function(e) {
-        var errorDiv = document.createElement('div');
-        errorDiv.style.position = 'fixed';
-        errorDiv.style.top = '60px';
-        errorDiv.style.left = '0';
-        errorDiv.style.width = '100%';
-        errorDiv.style.background = '#f97316';
-        errorDiv.style.color = '#ffffff';
-        errorDiv.style.padding = '12px';
-        errorDiv.style.zIndex = '999999';
-        errorDiv.style.fontFamily = 'monospace';
-        errorDiv.style.fontSize = '12px';
-        errorDiv.style.wordBreak = 'break-all';
-        errorDiv.innerText = 'Unhandled Promise Rejection: ' + e.reason;
-        document.documentElement.appendChild(errorDiv);
-      });
-    </script>
   </head>
   <body>
     <div id="root"></div>
