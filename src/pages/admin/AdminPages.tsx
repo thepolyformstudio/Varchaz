@@ -81,18 +81,66 @@ export function SupervisorMgmtPage() {
 }
 
 // ── Viewer Management ──
+import { Settings as SettingsIcon } from 'lucide-react';
+
 export function ViewerMgmtPage() {
   const [loading, setLoading] = useState(true);
   const [viewers, setViewers] = useState<AppUser[]>([]);
+  const [supervisors, setSupervisors] = useState<AppUser[]>([]);
+  const [editingViewer, setEditingViewer] = useState<AppUser | null>(null);
+  const [selectedSupervisors, setSelectedSupervisors] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => { load(); }, []);
-  async function load() { setLoading(true); try { setViewers(await fetchAllViewers()); } catch {} finally { setLoading(false); } }
+
+  async function load() {
+    setLoading(true);
+    try {
+      const vData = await fetchAllViewers();
+      setViewers(vData);
+      const sData = await fetchAllSupervisors();
+      setSupervisors(sData.filter(s => s.status === 'approved'));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleOpenEdit = (viewer: AppUser) => {
+    setEditingViewer(viewer);
+    setSelectedSupervisors(viewer.assignedSupervisors || []);
+  };
+
+  const handleToggleSupervisor = (sid: string) => {
+    setSelectedSupervisors(prev =>
+      prev.includes(sid) ? prev.filter(id => id !== sid) : [...prev, sid]
+    );
+  };
+
+  const handleSave = async () => {
+    if (!editingViewer) return;
+    setSaving(true);
+    try {
+      await updateUserProfile(editingViewer.uid, { assignedSupervisors: selectedSupervisors });
+      showToast('success', 'Assigned supervisors updated');
+      setViewers(prev => prev.map(v => v.uid === editingViewer.uid ? { ...v, assignedSupervisors: selectedSupervisors } : v));
+      setEditingViewer(null);
+    } catch (err) {
+      showToast('error', 'Failed to update supervisors');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) return <LoadingSpinner />;
+
   return (
     <div className="admin-page" id="viewer-mgmt-page">
       <PageHeader title="Viewer Management" subtitle={`${viewers.length} viewer(s)`} />
       <div className="data-table-wrapper">
         <table className="data-table">
-          <thead><tr><th>Name</th><th>Email</th><th>Assigned Supervisors</th><th>Status</th></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>Assigned Supervisors</th><th>Status</th><th className="text-center">Actions</th></tr></thead>
           <tbody>
             {viewers.map(v => (
               <tr key={v.uid}>
@@ -100,11 +148,63 @@ export function ViewerMgmtPage() {
                 <td>{v.email}</td>
                 <td style={{fontSize:'var(--v-text-xs)'}}>{v.assignedSupervisors?.length || 0} assigned</td>
                 <td><span className={`badge ${getStatusBadgeClass(v.status)}`}>{formatStatus(v.status)}</span></td>
+                <td className="text-center">
+                  <div className="table-actions" style={{ justifyContent: 'center' }}>
+                    <button className="table-action-btn" onClick={() => handleOpenEdit(v)} title="Manage supervisors">
+                      <SettingsIcon size={16} />
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {editingViewer && (
+        <div className="modal-overlay" onClick={() => setEditingViewer(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <div className="modal-header">
+              <h2>Assign Supervisors</h2>
+              <button className="btn btn-icon btn-ghost" onClick={() => setEditingViewer(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '320px', overflowY: 'auto' }}>
+              <p style={{ color: 'var(--v-text-secondary)', fontSize: 'var(--v-text-sm)', marginBottom: 'var(--v-space-4)' }}>
+                Select the supervisor teams that <strong>{editingViewer.displayName}</strong> is permitted to view:
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--v-space-2)' }}>
+                {supervisors.map(s => (
+                  <label key={s.uid} style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-3)', padding: 'var(--v-space-3)', backgroundColor: 'var(--v-bg-secondary)', borderRadius: 'var(--v-radius-md)', border: '1px solid var(--v-border-primary)', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedSupervisors.includes(s.uid)}
+                      onChange={() => handleToggleSupervisor(s.uid)}
+                      style={{ width: 18, height: 18, cursor: 'pointer' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 'var(--v-text-sm)', fontWeight: 600 }}>{s.displayName}</div>
+                      <div style={{ fontSize: 'var(--v-text-xs)', color: 'var(--v-text-secondary)' }}>{s.email}</div>
+                    </div>
+                  </label>
+                ))}
+                {supervisors.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--v-text-tertiary)', padding: 'var(--v-space-4)' }}>
+                    No active supervisors found in the system.
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setEditingViewer(null)} disabled={saving}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Assignments'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

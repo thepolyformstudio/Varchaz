@@ -309,6 +309,7 @@ function getNavItems(role: string): NavSection[] {
         {
           items: [
             { label: 'Profile', path: '/profile', icon: <Settings size={18} /> },
+            { label: 'About Us', path: '/about', icon: <BookOpen size={18} /> },
           ]
         }
       ];
@@ -344,6 +345,7 @@ function getNavItems(role: string): NavSection[] {
         {
           items: [
             { label: 'Profile', path: '/profile', icon: <Settings size={18} /> },
+            { label: 'About Us', path: '/about', icon: <BookOpen size={18} /> },
           ]
         }
       ];
@@ -359,6 +361,7 @@ function getNavItems(role: string): NavSection[] {
         {
           items: [
             { label: 'Profile', path: '/profile', icon: <Settings size={18} /> },
+            { label: 'About Us', path: '/about', icon: <BookOpen size={18} /> },
           ]
         }
       ];
@@ -388,6 +391,7 @@ function getNavItems(role: string): NavSection[] {
             { label: 'Plan Corrections', path: '/admin/plans', icon: <ClipboardList size={18} /> },
             { label: 'Disabled Accounts', path: '/admin/disabled', icon: <Archive size={18} /> },
             { label: 'Settings', path: '/admin/settings', icon: <Settings size={18} /> },
+            { label: 'About Us', path: '/about', icon: <BookOpen size={18} /> },
           ]
         }
       ];

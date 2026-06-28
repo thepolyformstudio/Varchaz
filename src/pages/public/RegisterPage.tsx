@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { BarChart3, User, Shield } from 'lucide-react';
+import { BarChart3, User, Shield, Eye } from 'lucide-react';
 import { isValidEmail, isValidPassword, isValidName } from '../../utils/validators';
 import { fetchAllSupervisors } from '../../services/userService';
 import type { AppUser, UserRole } from '../../types';
@@ -32,7 +32,7 @@ export default function RegisterPage() {
     if (!isValidEmail(email)) errs.email = 'Invalid email address';
     const pwCheck = isValidPassword(password);
     if (!pwCheck.valid) errs.password = pwCheck.message;
-    if (role === 'user' && !supervisorId) errs.supervisor = 'Please select a supervisor';
+    if ((role === 'user' || role === 'viewer') && !supervisorId) errs.supervisor = 'Please select a supervisor';
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -75,7 +75,7 @@ export default function RegisterPage() {
             {/* Role Selection */}
             <div className="input-group">
               <label className="input-label">I am a</label>
-              <div className="role-selector">
+              <div className="role-selector" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
                 <div
                   className={`role-option ${role === 'user' ? 'selected' : ''}`}
                   onClick={() => setRole('user')}
@@ -93,6 +93,15 @@ export default function RegisterPage() {
                   <div className="role-option-icon"><Shield size={20} /></div>
                   <div className="role-option-label">Supervisor</div>
                   <div className="role-option-desc">Manage a team</div>
+                </div>
+                <div
+                  className={`role-option ${role === 'viewer' ? 'selected' : ''}`}
+                  onClick={() => setRole('viewer')}
+                  id="role-viewer"
+                >
+                  <div className="role-option-icon"><Eye size={20} /></div>
+                  <div className="role-option-label">Viewer</div>
+                  <div className="role-option-desc">View team reports</div>
                 </div>
               </div>
             </div>
@@ -142,20 +151,20 @@ export default function RegisterPage() {
             </div>
 
             {/* Supervisor Selection */}
-            {(role === 'user' || role === 'supervisor') && (
+            {(role === 'user' || role === 'supervisor' || role === 'viewer') && (
               <div className="input-group">
                 <label className="input-label" htmlFor="reg-supervisor">
-                  {role === 'user' ? 'Select Supervisor' : 'Parent Supervisor (optional)'}
+                  {role === 'supervisor' ? 'Parent Supervisor (optional)' : 'Select Supervisor'}
                 </label>
                 <select
                   id="reg-supervisor"
                   className={`input-field ${fieldErrors.supervisor ? 'error' : ''}`}
                   value={supervisorId}
                   onChange={e => setSupervisorId(e.target.value)}
-                  required={role === 'user'}
+                  required={role !== 'supervisor'}
                 >
                   <option value="">
-                    {role === 'user' ? 'Choose your supervisor' : 'None (top-level supervisor)'}
+                    {role === 'supervisor' ? 'None (top-level supervisor)' : 'Choose your supervisor'}
                   </option>
                   {supervisors
                     .filter(s => s.status === 'approved')
@@ -165,7 +174,7 @@ export default function RegisterPage() {
                   }
                 </select>
                 {fieldErrors.supervisor && <span className="input-error">{fieldErrors.supervisor}</span>}
-                {role === 'user' && (
+                {role !== 'supervisor' && (
                   <span className="input-hint">Your account will need supervisor approval</span>
                 )}
               </div>

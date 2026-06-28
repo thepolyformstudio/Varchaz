@@ -3,7 +3,7 @@
    ============================================================ */
 
 import {
-  collection, doc, getDocs, updateDoc, query, where, serverTimestamp, orderBy
+  collection, doc, getDocs, updateDoc, query, where, serverTimestamp, orderBy, getDoc
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import type { Approval } from '../types';
@@ -33,15 +33,24 @@ export async function fetchAllApprovals(): Promise<Approval[]> {
 
 /** Approve a user */
 export async function approveUser(approvalId: string, userId: string, approvedBy: string): Promise<void> {
+  const approvalRef = doc(db, APPROVALS_COL, approvalId);
+  const approvalSnap = await getDoc(approvalRef);
+  const approvalData = approvalSnap.exists() ? approvalSnap.data() as Approval : null;
+
   // Update approval record
-  await updateDoc(doc(db, APPROVALS_COL, approvalId), {
+  await updateDoc(approvalRef, {
     status: 'approved',
     processedAt: serverTimestamp(),
     processedBy: approvedBy
   });
 
   // Update user status
-  await updateUserProfile(userId, { status: 'approved' });
+  const updates: any = { status: 'approved' };
+  if (approvalData && approvalData.role === 'viewer' && approvalData.supervisorId) {
+    updates.assignedSupervisors = [approvalData.supervisorId];
+  }
+
+  await updateUserProfile(userId, updates);
 }
 
 /** Reject a user */

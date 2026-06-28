@@ -92,7 +92,7 @@ function AppRoutes() {
         <Route path="/register" element={firebaseUser ? <Navigate to={getHomeRedirect()} /> : <RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/pending" element={<ApprovalPendingPage />} />
-        <Route path="/about" element={<AboutPage />} />
+        {!firebaseUser && <Route path="/about" element={<AboutPage />} />}
 
         {/* ── Authenticated Layout ── */}
         <Route element={
@@ -100,6 +100,9 @@ function AppRoutes() {
             <AppShell />
           </ProtectedRoute>
         }>
+          {/* ── Common Authenticated Routes ── */}
+          <Route path="/about" element={<AboutPage />} />
+
           {/* ── User Routes ── */}
           <Route path="/" element={
             <ProtectedRoute allowedRoles={['user']}>
