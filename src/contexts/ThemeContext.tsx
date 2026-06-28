@@ -20,14 +20,27 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem('varchaz-theme');
-    if (saved === 'dark' || saved === 'light') return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    try {
+      const saved = localStorage.getItem('varchaz-theme');
+      if (saved === 'dark' || saved === 'light') return saved;
+    } catch (e) {
+      console.warn('LocalStorage is blocked or unavailable:', e);
+    }
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+      }
+    } catch (e) {}
+    return 'light';
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('varchaz-theme', theme);
+    try {
+      localStorage.setItem('varchaz-theme', theme);
+    } catch (e) {
+      console.warn('Failed to save theme to localStorage:', e);
+    }
     // Update meta theme-color for PWA
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
