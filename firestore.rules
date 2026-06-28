@@ -51,8 +51,7 @@ service cloud.firestore {
         isOwner(userId) ||
         isAdmin() ||
         isViewer() ||
-        isSupervisorOf(userId) ||
-        isSupervisor()
+        isSupervisorOf(userId)
       )) || (
         resource.data.role == 'supervisor'
       );
@@ -115,7 +114,7 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid ||
         isAdmin() ||
         isViewer() ||
-        isSupervisor()
+        (isSupervisor() && isSupervisorOf(resource.data.userId))
       );
 
       // Users can create their own plans
@@ -150,7 +149,7 @@ service cloud.firestore {
         resource.data.supervisorId == request.auth.uid ||
         isAdmin() ||
         isViewer() ||
-        isSupervisor()
+        (isSupervisor() && isSupervisorOf(resource.data.userId))
       );
 
       // Users can create/update their own daily sales
