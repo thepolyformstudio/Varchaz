@@ -51,7 +51,7 @@ service cloud.firestore {
         isOwner(userId) ||
         isAdmin() ||
         isViewer() ||
-        isSupervisorOf(userId)
+        resource.data.supervisorId == request.auth.uid
       )) || (
         resource.data.role == 'supervisor'
       );
@@ -68,7 +68,7 @@ service cloud.firestore {
       allow update: if isAuthenticated() && (
         (isOwner(userId) && onlyUpdatedFields(['displayName', 'phone', 'updatedAt'])) ||
         isAdmin() ||
-        (isSupervisor() && isSupervisorOf(userId))
+        (isSupervisor() && resource.data.supervisorId == request.auth.uid)
       );
 
       // No hard deletes — soft delete only (status = 'disabled')
