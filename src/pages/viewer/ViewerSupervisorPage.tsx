@@ -83,13 +83,22 @@ export default function ViewerSupervisorPage() {
     <div className="dashboard-page" id="viewer-supervisor-page">
       <BackButton onClick={() => navigate('/viewer')} label="Back to Supervisors" />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-4)', marginBottom: 'var(--v-space-6)' }}>
-        <div className="avatar avatar-lg">{getInitials(supervisor.displayName)}</div>
-        <div>
-          <h1 style={{ fontSize: 'var(--v-text-xl)', fontWeight: 700 }}>{supervisor.displayName}'s Team</h1>
-          <div style={{ fontSize: 'var(--v-text-sm)', color: 'var(--v-text-secondary)' }}>{supervisor.email}</div>
-          <span className="badge badge-primary" style={{ marginTop: 4 }}>{formatRole(supervisor.role)}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--v-space-4)', marginBottom: 'var(--v-space-6)', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-4)' }}>
+          <div className="avatar avatar-lg">{getInitials(supervisor.displayName)}</div>
+          <div>
+            <h1 style={{ fontSize: 'var(--v-text-xl)', fontWeight: 700, margin: 0 }}>{supervisor.displayName}'s Team</h1>
+            <div style={{ fontSize: 'var(--v-text-sm)', color: 'var(--v-text-secondary)' }}>{supervisor.email}</div>
+            <span className="badge badge-primary" style={{ marginTop: 4 }}>{formatRole(supervisor.role)}</span>
+          </div>
         </div>
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => navigate(`/viewer/reporting-tracker/${supervisorId}`)}
+          style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-2)' }}
+        >
+          View Reporting Tracker
+        </button>
       </div>
 
       <div className="tabs" style={{ marginBottom: 'var(--v-space-4)' }}>

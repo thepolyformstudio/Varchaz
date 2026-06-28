@@ -39,6 +39,7 @@ const ProductSelectionPage = lazy(() => import('./pages/supervisor/ProductSelect
 const PlanOverridePage = lazy(() => import('./pages/supervisor/PlanOverridePage'));
 const TeamMTDInactivePage = lazy(() => import('./pages/supervisor/TeamMTDInactivePage'));
 const TeamYTDInactivePage = lazy(() => import('./pages/supervisor/TeamYTDInactivePage'));
+const ReportingTrackerPage = lazy(() => import('./pages/supervisor/ReportingTrackerPage'));
 
 // Viewer
 const ViewerHomePage = lazy(() => import('./pages/viewer/ViewerHomePage'));
@@ -197,6 +198,11 @@ function AppRoutes() {
               <TeamYTDInactivePage />
             </ProtectedRoute>
           } />
+          <Route path="/supervisor/reporting-tracker" element={
+            <ProtectedRoute allowedRoles={['supervisor']}>
+              <ReportingTrackerPage />
+            </ProtectedRoute>
+          } />
 
           {/* ── Viewer Routes ── */}
           <Route path="/viewer" element={
@@ -207,6 +213,11 @@ function AppRoutes() {
           <Route path="/viewer/supervisor/:supervisorId" element={
             <ProtectedRoute allowedRoles={['viewer']}>
               <ViewerSupervisorPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/viewer/reporting-tracker/:supervisorId" element={
+            <ProtectedRoute allowedRoles={['viewer']}>
+              <ReportingTrackerPage />
             </ProtectedRoute>
           } />
 

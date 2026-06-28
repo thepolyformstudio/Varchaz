@@ -338,6 +338,7 @@ function getNavItems(role: string): NavSection[] {
             { label: 'Team', path: '/supervisor/team', icon: <Users size={18} /> },
             { label: 'Products', path: '/supervisor/products', icon: <Package size={18} /> },
             { label: 'Plans', path: '/supervisor/plans', icon: <ClipboardList size={18} /> },
+            { label: 'Reporting Tracker', path: '/supervisor/reporting-tracker', icon: <CheckSquare size={18} /> },
           ]
         },
         {

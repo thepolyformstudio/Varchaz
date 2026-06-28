@@ -15,7 +15,7 @@ import { fetchUsersInHierarchy } from '../../services/userService';
 import { fetchMonthlyPlan } from '../../services/planService';
 import { fetchMonthlySales } from '../../services/salesService';
 import { countPendingApprovals } from '../../services/approvalService';
-import { Users, Target, TrendingUp, UserCheck, BarChart3, AlertTriangle, ClipboardList, Package } from 'lucide-react';
+import { Users, Target, TrendingUp, UserCheck, BarChart3, AlertTriangle, ClipboardList, Package, CheckSquare } from 'lucide-react';
 import type { AppUser, Product, ProductPerformance } from '../../types';
 
 export default function SupervisorHomePage() {
@@ -111,6 +111,10 @@ export default function SupervisorHomePage() {
         <a className="quick-action-btn" onClick={() => navigate('/supervisor/ytd')}>
           <div className="action-icon"><TrendingUp size={20} /></div>
           <span className="action-label">YTD</span>
+        </a>
+        <a className="quick-action-btn" onClick={() => navigate('/supervisor/reporting-tracker')}>
+          <div className="action-icon"><CheckSquare size={20} /></div>
+          <span className="action-label">Reporting Tracker</span>
         </a>
         <a className="quick-action-btn" onClick={() => navigate('/supervisor/approvals')}>
           <div className="action-icon"><UserCheck size={20} /></div>
