@@ -2,54 +2,55 @@
    Varchaz — Main App with Routing
    ============================================================ */
 
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { LoadingSpinner } from './components/shared';
+import { lazyWithRetry } from './utils/lazyWithRetry';
 
 // ─── Lazy-loaded pages ──────────────────────────────────────
 // Public
-const LoginPage = lazy(() => import('./pages/public/LoginPage'));
-const RegisterPage = lazy(() => import('./pages/public/RegisterPage'));
-const ForgotPasswordPage = lazy(() => import('./pages/public/ForgotPasswordPage'));
-const ApprovalPendingPage = lazy(() => import('./pages/public/ApprovalPendingPage'));
-const AboutPage = lazy(() => import('./pages/public/AboutPage'));
+const LoginPage = lazyWithRetry(() => import('./pages/public/LoginPage'));
+const RegisterPage = lazyWithRetry(() => import('./pages/public/RegisterPage'));
+const ForgotPasswordPage = lazyWithRetry(() => import('./pages/public/ForgotPasswordPage'));
+const ApprovalPendingPage = lazyWithRetry(() => import('./pages/public/ApprovalPendingPage'));
+const AboutPage = lazyWithRetry(() => import('./pages/public/AboutPage'));
 
 // User
-const UserHomePage = lazy(() => import('./pages/user/UserHomePage'));
-const DailyReportPage = lazy(() => import('./pages/user/DailyReportPage'));
-const MonthlyPlanPage = lazy(() => import('./pages/user/MonthlyPlanPage'));
-const DayViewPage = lazy(() => import('./pages/user/DayViewPage'));
-const MTDPage = lazy(() => import('./pages/user/MTDPage'));
-const YTDPage = lazy(() => import('./pages/user/YTDPage'));
-const MTDInactivePage = lazy(() => import('./pages/user/MTDInactivePage'));
-const YTDInactivePage = lazy(() => import('./pages/user/YTDInactivePage'));
+const UserHomePage = lazyWithRetry(() => import('./pages/user/UserHomePage'));
+const DailyReportPage = lazyWithRetry(() => import('./pages/user/DailyReportPage'));
+const MonthlyPlanPage = lazyWithRetry(() => import('./pages/user/MonthlyPlanPage'));
+const DayViewPage = lazyWithRetry(() => import('./pages/user/DayViewPage'));
+const MTDPage = lazyWithRetry(() => import('./pages/user/MTDPage'));
+const YTDPage = lazyWithRetry(() => import('./pages/user/YTDPage'));
+const MTDInactivePage = lazyWithRetry(() => import('./pages/user/MTDInactivePage'));
+const YTDInactivePage = lazyWithRetry(() => import('./pages/user/YTDInactivePage'));
 
 // Supervisor
-const SupervisorHomePage = lazy(() => import('./pages/supervisor/SupervisorHomePage'));
-const TeamDayPage = lazy(() => import('./pages/supervisor/TeamDayPage'));
-const TeamMTDPage = lazy(() => import('./pages/supervisor/TeamMTDPage'));
-const TeamYTDPage = lazy(() => import('./pages/supervisor/TeamYTDPage'));
-const UserDrillDownPage = lazy(() => import('./pages/supervisor/UserDrillDownPage'));
-const ApprovalQueuePage = lazy(() => import('./pages/supervisor/ApprovalQueuePage'));
-const TeamManagementPage = lazy(() => import('./pages/supervisor/TeamManagementPage'));
-const ProductSelectionPage = lazy(() => import('./pages/supervisor/ProductSelectionPage'));
-const PlanOverridePage = lazy(() => import('./pages/supervisor/PlanOverridePage'));
-const TeamMTDInactivePage = lazy(() => import('./pages/supervisor/TeamMTDInactivePage'));
-const TeamYTDInactivePage = lazy(() => import('./pages/supervisor/TeamYTDInactivePage'));
-const ReportingTrackerPage = lazy(() => import('./pages/supervisor/ReportingTrackerPage'));
+const SupervisorHomePage = lazyWithRetry(() => import('./pages/supervisor/SupervisorHomePage'));
+const TeamDayPage = lazyWithRetry(() => import('./pages/supervisor/TeamDayPage'));
+const TeamMTDPage = lazyWithRetry(() => import('./pages/supervisor/TeamMTDPage'));
+const TeamYTDPage = lazyWithRetry(() => import('./pages/supervisor/TeamYTDPage'));
+const UserDrillDownPage = lazyWithRetry(() => import('./pages/supervisor/UserDrillDownPage'));
+const ApprovalQueuePage = lazyWithRetry(() => import('./pages/supervisor/ApprovalQueuePage'));
+const TeamManagementPage = lazyWithRetry(() => import('./pages/supervisor/TeamManagementPage'));
+const ProductSelectionPage = lazyWithRetry(() => import('./pages/supervisor/ProductSelectionPage'));
+const PlanOverridePage = lazyWithRetry(() => import('./pages/supervisor/PlanOverridePage'));
+const TeamMTDInactivePage = lazyWithRetry(() => import('./pages/supervisor/TeamMTDInactivePage'));
+const TeamYTDInactivePage = lazyWithRetry(() => import('./pages/supervisor/TeamYTDInactivePage'));
+const ReportingTrackerPage = lazyWithRetry(() => import('./pages/supervisor/ReportingTrackerPage'));
 
 // Viewer
-const ViewerHomePage = lazy(() => import('./pages/viewer/ViewerHomePage'));
-const ViewerSupervisorPage = lazy(() => import('./pages/viewer/ViewerSupervisorPage'));
+const ViewerHomePage = lazyWithRetry(() => import('./pages/viewer/ViewerHomePage'));
+const ViewerSupervisorPage = lazyWithRetry(() => import('./pages/viewer/ViewerSupervisorPage'));
 
 // Admin
-const AdminHomePage = lazy(() => import('./pages/admin/AdminHomePage'));
+const AdminHomePage = lazyWithRetry(() => import('./pages/admin/AdminHomePage'));
 
 // Profile
-const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const ProfilePage = lazyWithRetry(() => import('./pages/ProfilePage'));
 
 // Admin sub-pages (named exports)
 import {
