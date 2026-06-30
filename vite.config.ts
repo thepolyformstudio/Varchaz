@@ -11,6 +11,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src')
     }
   },
+  build: {
+    target: 'es2018'
+  },
   server: {
     port: 5173,
     host: true

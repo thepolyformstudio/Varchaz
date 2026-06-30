@@ -8,11 +8,29 @@
       var SW_PURGE_VERSION = '2';
       (function() {
         if (!('serviceWorker' in navigator)) return;
+        
+        // Check if sessionStorage is available and writable (e.g. not blocked by Private mode)
+        var storageAvailable = false;
+        try {
+          var testKey = '__storage_test__';
+          sessionStorage.setItem(testKey, testKey);
+          sessionStorage.removeItem(testKey);
+          storageAvailable = true;
+        } catch (e) {}
+
+        if (!storageAvailable) {
+          // Exit immediately. If storage is blocked, we cannot write our safety flag,
+          // so we must not unregister/reload automatically to avoid infinite reload loops.
+          return;
+        }
+
         try {
           var purged = sessionStorage.getItem('sw-purged');
           if (purged === SW_PURGE_VERSION) return; // already purged this session
           sessionStorage.setItem('sw-purged', SW_PURGE_VERSION);
-        } catch(e) {}
+        } catch(e) {
+          return;
+        }
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
           var hadSW = registrations.length > 0;
           var promises = registrations.map(function(r) { return r.unregister(); });

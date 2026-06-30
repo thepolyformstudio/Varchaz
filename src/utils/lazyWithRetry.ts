@@ -29,12 +29,18 @@ export function lazyWithRetry<T extends ComponentType<any>>(
       if (isChunkLoadFailed) {
         // Prevent infinite reload loops by checking session storage
         const reloadKey = 'chunk-load-failed-reload';
-        const lastReload = sessionStorage.getItem(reloadKey);
+        let lastReload: string | null = null;
+        try {
+          lastReload = sessionStorage.getItem(reloadKey);
+        } catch (e) {}
+        
         const now = Date.now();
 
         // If we haven't reloaded due to a chunk load error in the last 10 seconds, reload.
         if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
-          sessionStorage.setItem(reloadKey, now.toString());
+          try {
+            sessionStorage.setItem(reloadKey, now.toString());
+          } catch (e) {}
           console.warn('Chunk load failed. Refreshing page to fetch latest bundles...');
           window.location.reload();
 
