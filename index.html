@@ -2,61 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      // One-time service worker purge — removes stale SW caches that serve broken builds.
-      // Increment this version number whenever you need to force a cache bust.
-      var SW_PURGE_VERSION = '2';
-      (function() {
-        if (!('serviceWorker' in navigator)) return;
-        
-        // Check if sessionStorage is available and writable (e.g. not blocked by Private mode)
-        var storageAvailable = false;
-        try {
-          var testKey = '__storage_test__';
-          sessionStorage.setItem(testKey, testKey);
-          sessionStorage.removeItem(testKey);
-          storageAvailable = true;
-        } catch (e) {}
-
-        if (!storageAvailable) {
-          // Exit immediately. If storage is blocked, we cannot write our safety flag,
-          // so we must not unregister/reload automatically to avoid infinite reload loops.
-          return;
-        }
-
-        try {
-          var purged = sessionStorage.getItem('sw-purged');
-          if (purged === SW_PURGE_VERSION) return; // already purged this session
-          sessionStorage.setItem('sw-purged', SW_PURGE_VERSION);
-        } catch(e) {
-          return;
-        }
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          var hadSW = registrations.length > 0;
-          var promises = registrations.map(function(r) { return r.unregister(); });
-          if (typeof caches !== 'undefined') {
-            promises.push(
-              caches.keys().then(function(names) {
-                return Promise.all(names.map(function(n) { return caches.delete(n); }));
-              })
-            );
-          }
-          if (hadSW) {
-            Promise.all(promises).then(function() {
-              window.location.reload();
-            });
-          }
-        });
-      })();
-    </script>
     <link rel="icon" type="image/svg+xml" href="/varchaz-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#1a1b1e" />
+    <title>Varchaz</title>
     <meta name="description" content="Varchaz — Mobile-first daily sales reporting and performance tracking for teams, supervisors, and admins." />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-    <title>Varchaz — Daily Sales Reporting</title>
   </head>
   <body>
     <div id="root"></div>
