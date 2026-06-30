@@ -18,23 +18,10 @@ export function sendNotification(title: string, body: string) {
     return;
   }
   try {
-    // Attempt to register via service worker if available, fallback to Notification constructor
-    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.ready.then(registration => {
-        registration.showNotification(title, {
-          body,
-          icon: '/varchaz-logo-3d.png',
-          badge: '/varchaz-logo-3d.png',
-          tag: 'varchaz-reminder',
-          renotify: true
-        } as any);
-      });
-    } else {
-      new Notification(title, {
-        body,
-        icon: '/varchaz-logo-3d.png'
-      });
-    }
+    new Notification(title, {
+      body,
+      icon: '/varchaz-logo-3d.png'
+    });
   } catch (err) {
     console.error('Failed to show notification:', err);
   }
