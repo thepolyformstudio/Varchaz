@@ -6,7 +6,7 @@ import React from 'react';
 import { formatIndianNumber, formatPercent } from '../../utils/formatters';
 import { getPctClass } from '../../utils/calculations';
 import type { ProductPerformance } from '../../types';
-import { AlertCircle, ChevronLeft, ChevronRight, Download, FileSpreadsheet } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, Download, FileSpreadsheet, Mail } from 'lucide-react';
 import { exportToPDF, exportToExcel, performanceToExportData } from '../../services/exportService';
 
 // ─── Summary Card ───────────────────────────────────────────
@@ -57,7 +57,7 @@ export function PerformanceTable({
   const grandTotalAchievement = data.reduce((s, p) => s + p.achievement, 0);
   const grandTotalPct = grandTotalPlan > 0 ? (grandTotalAchievement / grandTotalPlan) * 100 : 0;
 
-  const handleExport = async (format: 'pdf' | 'excel') => {
+  const handleExport = async (format: 'pdf' | 'excel' | 'email') => {
     const { data: exportData, columns } = performanceToExportData(data, viewType);
     const options = {
       format,
@@ -68,8 +68,32 @@ export function PerformanceTable({
     };
     if (format === 'pdf') {
       await exportToPDF(options);
-    } else {
+    } else if (format === 'excel') {
       await exportToExcel(options);
+    } else if (format === 'email') {
+      const subject = encodeURIComponent(options.title);
+      let bodyText = `${options.title}\\n\\n`;
+      
+      exportData.forEach(row => {
+        const isHeader = row.product.startsWith('CATEGORY:') || row.product === 'GRAND TOTAL' || row.product.includes('Sub-total');
+        if (isHeader) {
+          bodyText += `\\n[ ${row.product.trim()} ]\\n`;
+          if (row.product.startsWith('CATEGORY:')) return; // No numbers on category header itself
+        } else {
+          bodyText += `- ${row.product.trim()}: `;
+        }
+
+        if (viewType !== 'day') {
+          if (isHeader) bodyText += `  `;
+          bodyText += `Plan: ${row.plan} | Ach: ${row.achievement} (${row.pct})\\n`;
+        } else {
+          if (isHeader) bodyText += `  `;
+          bodyText += `Ach: ${row.achievement}\\n`;
+        }
+      });
+      
+      const body = encodeURIComponent(bodyText);
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
     }
   };
 
@@ -94,6 +118,9 @@ export function PerformanceTable({
         }}>
           <h3 style={{ fontSize: 'var(--v-text-sm)', fontWeight: 600 }}>{title}</h3>
           <div style={{ display: 'flex', gap: 'var(--v-space-1)' }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => handleExport('email')} title="Send Email Summary">
+              <Mail size={14} /> Email
+            </button>
             <button className="btn btn-ghost btn-sm" onClick={() => handleExport('pdf')} title="Export PDF">
               <Download size={14} /> PDF
             </button>
@@ -270,6 +297,101 @@ export function DatePickerRow({
       <span style={{ fontSize: 'var(--v-text-sm)', color: 'var(--v-text-secondary)', marginLeft: 'var(--v-space-2)' }}>
         {new Date(date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}
       </span>
+    </div>
+  );
+}
+
+// ─── User Performance List (Mobile Friendly Drill Down) ───
+export function UserPerformanceList({ 
+  userPerfs, 
+  viewType = 'mtd', 
+  onUserClick 
+}: { 
+  userPerfs: { user: import('../../types').AppUser; performances: ProductPerformance[] }[];
+  viewType?: 'mtd' | 'ytd' | 'day';
+  onUserClick?: (userId: string) => void;
+}) {
+  const [expandedUsers, setExpandedUsers] = React.useState<Record<string, boolean>>({});
+
+  const toggleUser = (uid: string) => {
+    setExpandedUsers(prev => ({ ...prev, [uid]: !prev[uid] }));
+  };
+
+  if (userPerfs.length === 0) return null;
+
+  return (
+    <div className="user-perf-list">
+      {userPerfs.map(({ user, performances }) => {
+        const totalPlan = performances.reduce((s, p) => s + p.plan, 0);
+        const totalAch = performances.reduce((s, p) => s + p.achievement, 0);
+        const totalPct = totalPlan > 0 ? (totalAch / totalPlan) * 100 : 0;
+        const isExpanded = !!expandedUsers[user.uid];
+
+        return (
+          <div key={user.uid} className="user-perf-card animate-fade-in-up">
+            <div className="user-perf-card-header" onClick={() => toggleUser(user.uid)}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-3)' }}>
+                <div className="avatar avatar-sm">{user.displayName.charAt(0).toUpperCase()}</div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 'var(--v-text-sm)' }}>{user.displayName}</div>
+                  <div style={{ fontSize: 'var(--v-text-xs)', color: 'var(--v-text-secondary)' }}>
+                    Achieved: {formatIndianNumber(totalAch)} 
+                    {viewType !== 'day' && ` / ${formatIndianNumber(totalPlan)} (${formatPercent(totalPct)})`}
+                  </div>
+                </div>
+              </div>
+              <ChevronRight 
+                size={16} 
+                style={{ 
+                  color: 'var(--v-text-tertiary)',
+                  transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                  transition: 'transform var(--v-transition-fast)'
+                }} 
+              />
+            </div>
+            
+            {isExpanded && (
+              <div className="data-table-wrapper animate-fade-in" style={{ margin: 0, border: 'none', borderRadius: 0 }}>
+                <div className="data-table-scroll">
+                  <table className="data-table" style={{ fontSize: 'var(--v-text-xs)' }}>
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        {viewType !== 'day' && <th className="text-right">Plan</th>}
+                        <th className="text-right">Ach</th>
+                        {viewType !== 'day' && <th className="text-right">%</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {performances.map(p => (
+                        <tr key={p.productId}>
+                          <td>{p.productName}</td>
+                          {viewType !== 'day' && (
+                            <td className="text-right num-cell">{p.hasNoPlan ? '-' : formatIndianNumber(p.plan)}</td>
+                          )}
+                          <td className="text-right num-cell">{formatIndianNumber(p.achievement)}</td>
+                          {viewType !== 'day' && (
+                            <td className={`text-right pct-cell ${getPctClass(p.achievementPct)}`}>
+                              {formatPercent(p.achievementPct)}
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {onUserClick && (
+                  <div style={{ padding: 'var(--v-space-3)', borderTop: '1px solid var(--v-border-primary)', textAlign: 'center', background: 'var(--v-bg-secondary)' }}>
+                     <button className="btn btn-secondary btn-sm" onClick={() => onUserClick(user.uid)}>
+                       View Full Report
+                     </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

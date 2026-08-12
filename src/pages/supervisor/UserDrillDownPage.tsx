@@ -12,9 +12,7 @@ import { fetchMonthlyPlan, fetchPlansForMonths } from '../../services/planServic
 import { fetchMonthlySales, fetchSalesMultiMonth } from '../../services/salesService';
 import type { AppUser, Product, ProductPerformance } from '../../types';
 import { getInitials, formatRole } from '../../utils/formatters';
-import { Mail } from 'lucide-react';
-import { db } from '../../config/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { Mail, MessageCircle } from 'lucide-react';
 
 export default function UserDrillDownPage() {
   const { uid } = useParams<{ uid: string }>();
@@ -66,6 +64,50 @@ export default function UserDrillDownPage() {
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }
+
+  const handleWhatsApp = () => {
+    if (!targetUser || !appUser) return;
+    
+    const isMtd = tab === 'mtd';
+    const performanceData = isMtd ? mtdData : ytdData;
+    const periodStr = isMtd ? `MTD - ${displayMonth(getCurrentMonth())}` : `YTD - ${getFYLabel(targetUser.financialYear || 'apr-mar')}`;
+    
+    let text = `*Varchaz Performance Summary* 📊\n`;
+    text += `*User:* ${targetUser.displayName}\n`;
+    text += `*Type:* ${periodStr}\n\n`;
+
+    const categoriesMap: Record<string, ProductPerformance[]> = {};
+    performanceData.forEach(p => {
+      const cat = p.category || 'General';
+      if (!categoriesMap[cat]) categoriesMap[cat] = [];
+      categoriesMap[cat].push(p);
+    });
+
+    const sortedCategories = Object.keys(categoriesMap).sort();
+    let grandTotalPlan = 0;
+    let grandTotalAchievement = 0;
+
+    sortedCategories.forEach(catName => {
+      text += `*${catName}*\n`;
+      const catProducts = categoriesMap[catName];
+      catProducts.forEach(p => {
+        grandTotalPlan += p.plan;
+        grandTotalAchievement += p.achievement;
+        const pctStr = p.hasNoPlan ? (p.achievement > 0 ? '100% (No Plan)' : '0%') : `${p.achievementPct.toFixed(1)}%`;
+        text += `🔹 ${p.productName}: Target ${p.plan.toLocaleString('en-IN')} | Achieved ${p.achievement.toLocaleString('en-IN')} (${pctStr})\n`;
+      });
+      text += `\n`;
+    });
+
+    if (performanceData.length > 0) {
+      const grandPct = grandTotalPlan > 0 ? (grandTotalAchievement / grandTotalPlan) * 100 : 0;
+      text += `*GRAND TOTAL:* Target ${grandTotalPlan.toLocaleString('en-IN')} | Achieved ${grandTotalAchievement.toLocaleString('en-IN')} (${grandPct.toFixed(1)}%)\n`;
+    }
+
+    const phoneParam = targetUser.phone ? `${targetUser.phone.replace(/\D/g, '')}` : '';
+    const url = `https://api.whatsapp.com/send?phone=${phoneParam}&text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
 
   const handleSendEmail = async () => {
     if (!recipientEmail || !targetUser || !appUser) return;
@@ -212,16 +254,27 @@ export default function UserDrillDownPage() {
         </div>
       `;
 
-      await addDoc(collection(db, 'mail'), {
-        to: recipientEmail,
-        message: {
+      const apiUrl = import.meta.env.VITE_EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
+      const apiKey = import.meta.env.VITE_EMAIL_API_KEY || 'your_super_secret_api_key_here';
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey
+        },
+        body: JSON.stringify({
+          to: recipientEmail,
           subject: `[Varchaz] Performance Summary - ${targetUser.displayName} (${isMtd ? 'MTD' : 'YTD'})`,
           html: htmlBody,
           text: `Performance Summary for ${targetUser.displayName}. Sent by ${appUser.displayName}.`
-        },
-        createdAt: serverTimestamp(),
-        createdBy: appUser.uid
+        })
       });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Failed to send email via microservice');
+      }
 
       alert('Email summary request queued successfully!');
       setEmailModalOpen(false);
@@ -250,13 +303,23 @@ export default function UserDrillDownPage() {
             <span className="badge badge-primary" style={{ marginTop: 4 }}>{formatRole(targetUser.role)}</span>
           </div>
         </div>
-        <button 
-          className="btn btn-primary"
-          onClick={() => setEmailModalOpen(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-2)' }}
-        >
-          <Mail size={16} /> Email Summary
-        </button>
+        <div style={{ display: 'flex', gap: 'var(--v-space-2)' }}>
+          <button 
+            className="btn btn-outline"
+            onClick={handleWhatsApp}
+            style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-2)' }}
+            title="Send via WhatsApp"
+          >
+            <MessageCircle size={16} /> WhatsApp
+          </button>
+          <button 
+            className="btn btn-primary"
+            onClick={() => setEmailModalOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-2)' }}
+          >
+            <Mail size={16} /> Email Summary
+          </button>
+        </div>
       </div>
 
       <div className="tabs" style={{ marginBottom: 'var(--v-space-4)' }}>

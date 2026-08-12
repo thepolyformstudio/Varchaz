@@ -4,14 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoadingSpinner, PageHeader, BackButton } from '../../components/shared';
-import { PerformanceTable } from '../../components/dashboard';
-import { getCurrentMonth, displayMonth, getYTDMonths, getFYLabel } from '../../utils/dateUtils';
-import { buildMTDPerformance, buildYTDPerformance, aggregateUserPerformances, calcGrandTotal, getPctClass } from '../../utils/calculations';
+import { PerformanceTable, DatePickerRow, UserPerformanceList } from '../../components/dashboard';
+import { getCurrentMonth, displayMonth, getYTDMonths, getFYLabel, getToday, displayDate } from '../../utils/dateUtils';
+import { buildMTDPerformance, buildYTDPerformance, buildDayPerformance, aggregateUserPerformances, calcGrandTotal, getPctClass } from '../../utils/calculations';
 import { formatIndianNumber, formatPercent, getInitials, formatRole } from '../../utils/formatters';
 import { fetchActiveProducts, fetchSupervisorProducts } from '../../services/productService';
 import { fetchUser, fetchUsersInHierarchy } from '../../services/userService';
 import { fetchMonthlyPlan, fetchPlansForMonths } from '../../services/planService';
-import { fetchMonthlySales, fetchSalesMultiMonth } from '../../services/salesService';
+import { fetchMonthlySales, fetchSalesMultiMonth, fetchDailySales } from '../../services/salesService';
 import type { AppUser, Product, ProductPerformance } from '../../types';
 
 export default function ViewerSupervisorPage() {
@@ -20,12 +20,14 @@ export default function ViewerSupervisorPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [supervisor, setSupervisor] = useState<AppUser | null>(null);
-  const [tab, setTab] = useState<'mtd' | 'ytd'>('mtd');
+  const [tab, setTab] = useState<'day' | 'mtd' | 'ytd'>('mtd');
+  const [date, setDate] = useState(getToday());
+  const [dayData, setDayData] = useState<ProductPerformance[]>([]);
   const [mtdData, setMtdData] = useState<ProductPerformance[]>([]);
   const [ytdData, setYtdData] = useState<ProductPerformance[]>([]);
   const [userPerfs, setUserPerfs] = useState<{ user: AppUser; performances: ProductPerformance[] }[]>([]);
 
-  useEffect(() => { if (supervisorId && appUser) load(); }, [supervisorId, appUser, tab]);
+  useEffect(() => { if (supervisorId && appUser) load(); }, [supervisorId, appUser, tab, date]);
 
   async function load() {
     if (!supervisorId || !appUser) return;
@@ -47,7 +49,16 @@ export default function ViewerSupervisorPage() {
       const users = (await fetchUsersInHierarchy(supervisorId)).filter(u => u.status === 'approved');
       const userPerfsList: typeof userPerfs = [];
 
-      if (tab === 'mtd') {
+      if (tab === 'day') {
+        const perfs: ProductPerformance[][] = [];
+        for (const u of users) {
+          const sales = await fetchDailySales(u.uid, date);
+          const perf = buildDayPerformance(products, sales, activeIds);
+          perfs.push(perf);
+          userPerfsList.push({ user: u, performances: perf });
+        }
+        setDayData(aggregateUserPerformances(perfs));
+      } else if (tab === 'mtd') {
         const perfs: ProductPerformance[][] = [];
         for (const u of users) {
           const plan = await fetchMonthlyPlan(u.uid, month);
@@ -102,10 +113,22 @@ export default function ViewerSupervisorPage() {
       </div>
 
       <div className="tabs" style={{ marginBottom: 'var(--v-space-4)' }}>
+        <button className={`tab-item ${tab === 'day' ? 'active' : ''}`} onClick={() => setTab('day')}>Day (FTD)</button>
         <button className={`tab-item ${tab === 'mtd' ? 'active' : ''}`} onClick={() => setTab('mtd')}>MTD</button>
         <button className={`tab-item ${tab === 'ytd' ? 'active' : ''}`} onClick={() => setTab('ytd')}>YTD</button>
       </div>
 
+      {tab === 'day' && (
+        <>
+          <div className="filter-bar"><DatePickerRow date={date} onChange={setDate} /></div>
+          <PerformanceTable
+            data={dayData}
+            viewType="day"
+            title={`Consolidated Day — ${displayDate(date)}`}
+            exportFileName={`Viewer_${supervisor.displayName}_Day_${date}`}
+          />
+        </>
+      )}
       {tab === 'mtd' && (
         <PerformanceTable
           data={mtdData}
@@ -126,49 +149,11 @@ export default function ViewerSupervisorPage() {
       {/* User-level summary */}
       <div className="dashboard-section" style={{ marginTop: 'var(--v-space-6)' }}>
         <h3 className="section-title">User-Level Product-Wise Summary</h3>
-        <div className="data-table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Product</th>
-                <th className="text-right">Plan</th>
-                <th className="text-right">Achievement</th>
-                <th className="text-right">Ach. %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {userPerfs.map(({ user, performances }) => (
-                <React.Fragment key={user.uid}>
-                  {performances.map((perf, index) => (
-                    <tr 
-                      key={`${user.uid}-${perf.productId}`} 
-                      style={{ cursor: 'pointer' }} 
-                      onClick={() => navigate(`/supervisor/user/${user.uid}`)}
-                    >
-                      {index === 0 ? (
-                        <td rowSpan={performances.length} style={{ verticalAlign: 'middle', borderRight: '1px solid var(--v-border-primary)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-2)' }}>
-                            <div className="avatar avatar-sm">{getInitials(user.displayName)}</div>
-                            <strong>{user.displayName}</strong>
-                          </div>
-                        </td>
-                      ) : null}
-                      <td>{perf.productName}</td>
-                      <td className="text-right num-cell">
-                        {perf.hasNoPlan ? <span className="no-plan-label">No Plan</span> : formatIndianNumber(perf.plan)}
-                      </td>
-                      <td className="text-right num-cell">{formatIndianNumber(perf.achievement)}</td>
-                      <td className={`text-right pct-cell ${getPctClass(perf.achievementPct)}`}>
-                        {formatPercent(perf.achievementPct)}
-                      </td>
-                    </tr>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <UserPerformanceList 
+          userPerfs={userPerfs} 
+          viewType={tab} 
+          onUserClick={(uid) => navigate(`/supervisor/user/${uid}`)} 
+        />
       </div>
     </div>
   );

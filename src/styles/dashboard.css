@@ -317,3 +317,33 @@
 [data-theme='dark'] .drill-down-item .user-pct {
   color: var(--v-blue-400);
 }
+
+/* ─── User Performance List (Mobile Friendly Drill Down) ─── */
+.user-perf-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-4);
+}
+
+.user-perf-card {
+  background: var(--v-bg-primary);
+  border: 1px solid var(--v-border-primary);
+  border-radius: var(--v-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--v-shadow-sm);
+}
+
+.user-perf-card-header {
+  padding: var(--v-space-3) var(--v-space-4);
+  background: var(--v-bg-secondary);
+  border-bottom: 1px solid var(--v-border-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: background var(--v-transition-fast);
+}
+
+.user-perf-card-header:hover {
+  background: var(--v-bg-hover);
+}

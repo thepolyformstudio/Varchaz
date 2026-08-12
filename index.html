@@ -9,6 +9,20 @@
     <meta name="description" content="Varchaz — Mobile-first daily sales reporting and performance tracking for teams, supervisors, and admins." />
   </head>
   <body>
+    <script>
+      window.addEventListener('error', function(e) {
+        var err = document.createElement('div');
+        err.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:20px;z-index:9999;font-family:sans-serif;word-wrap:break-word;';
+        err.innerText = 'Error: ' + e.message + '\\n' + e.filename + ':' + e.lineno;
+        document.body.appendChild(err);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        var err = document.createElement('div');
+        err.style.cssText = 'position:fixed;top:80px;left:0;right:0;background:orange;color:white;padding:20px;z-index:9999;font-family:sans-serif;word-wrap:break-word;';
+        err.innerText = 'Promise Error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason);
+        document.body.appendChild(err);
+      });
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

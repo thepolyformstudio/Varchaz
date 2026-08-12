@@ -92,29 +92,27 @@ export default function UserHomePage() {
       <div className="summary-grid">
         <SummaryCard
           icon={<Target size={20} />}
-          label={`MTD Plan — ${displayMonth(getCurrentMonth())}`}
-          value={formatIndianNumber(mtdTotals.totalPlan)}
+          label={`Active Products (MTD)`}
+          value={mtdData.filter(p => p.achievement > 0).length}
           onClick={() => navigate('/mtd')}
+        />
+        <SummaryCard
+          icon={<AlertTriangle size={20} />}
+          label="Inactive Products (MTD)"
+          value={mtdData.filter(p => p.achievement === 0).length}
+          onClick={() => navigate('/mtd-inactive')}
         />
         <SummaryCard
           icon={<TrendingUp size={20} />}
-          label="MTD Achievement"
-          value={formatIndianNumber(mtdTotals.totalAchievement)}
-          trend={{ value: formatPercent(mtdTotals.totalPct), direction: mtdTotals.totalPct >= 50 ? 'up' : 'down' }}
-          onClick={() => navigate('/mtd')}
-        />
-        <SummaryCard
-          icon={<BarChart3 size={20} />}
-          label="YTD Achievement"
-          value={formatIndianNumber(ytdTotals.totalAchievement)}
-          trend={{ value: formatPercent(ytdTotals.totalPct), direction: ytdTotals.totalPct >= 50 ? 'up' : 'down' }}
+          label="Active Products (YTD)"
+          value={ytdData.filter(p => p.achievement > 0).length}
           onClick={() => navigate('/ytd')}
         />
         <SummaryCard
           icon={<AlertTriangle size={20} />}
-          label="MTD Inactive Products"
-          value={mtdData.filter(p => p.achievement === 0).length}
-          onClick={() => navigate('/mtd-inactive')}
+          label="Inactive Products (YTD)"
+          value={ytdData.filter(p => p.achievement === 0).length}
+          onClick={() => navigate('/ytd-inactive')}
         />
       </div>
 

@@ -179,7 +179,7 @@ export interface FilterState {
 }
 
 // ─── Export ───────────────────────────────────────────────
-export type ExportFormat = 'pdf' | 'excel';
+export type ExportFormat = 'pdf' | 'excel' | 'email';
 export interface ExportOptions {
   format: ExportFormat;
   title: string;

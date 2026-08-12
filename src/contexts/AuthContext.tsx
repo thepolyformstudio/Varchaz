@@ -13,6 +13,7 @@ import {
   type User
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { auth, db } from '../config/firebase';
 import type { AppUser, UserRole } from '../types';
 
@@ -146,12 +147,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function resetPassword(email: string) {
     setError(null);
+    const cleanEmail = email.trim().toLowerCase();
     try {
-      await sendPasswordResetEmail(auth, email);
-    } catch (err: any) {
-      const msg = getAuthErrorMessage(err.code);
-      setError(msg);
-      throw new Error(msg);
+      const functions = getFunctions();
+      const customResetCallable = httpsCallable<{ email: string }, { success: boolean; message: string }>(
+        functions,
+        'sendCustomPasswordResetEmail'
+      );
+      await customResetCallable({ email: cleanEmail });
+    } catch (callableErr: any) {
+      console.warn('Custom password reset callable failed, trying standard Firebase SDK fallback:', callableErr);
+      try {
+        await sendPasswordResetEmail(auth, cleanEmail);
+      } catch (err: any) {
+        const msg = getAuthErrorMessage(err.code || callableErr?.code);
+        setError(msg);
+        throw new Error(msg);
+      }
     }
   }
 

@@ -82,12 +82,16 @@ export default function SupervisorHomePage() {
       {/* Summary Cards */}
       <div className="summary-grid">
         <SummaryCard icon={<Users size={20} />} label="Team Members" value={teamUsers.length} onClick={() => navigate('/supervisor/team')} />
-        <SummaryCard icon={<Target size={20} />} label={`MTD Plan — ${displayMonth(getCurrentMonth())}`} value={formatIndianNumber(mtdTotals.totalPlan)} onClick={() => navigate('/supervisor/mtd')} />
+        <SummaryCard 
+          icon={<Target size={20} />} 
+          label={`Active Products (MTD)`} 
+          value={consolidatedMTD.filter(p => p.achievement > 0).length} 
+          onClick={() => navigate('/supervisor/mtd')} 
+        />
         <SummaryCard
-          icon={<TrendingUp size={20} />}
-          label="MTD Achievement"
-          value={formatIndianNumber(mtdTotals.totalAchievement)}
-          trend={{ value: formatPercent(mtdTotals.totalPct), direction: mtdTotals.totalPct >= 50 ? 'up' : 'down' }}
+          icon={<AlertTriangle size={20} />}
+          label="Inactive Products (MTD)"
+          value={consolidatedMTD.filter(p => p.achievement === 0).length}
           onClick={() => navigate('/supervisor/mtd')}
         />
         <SummaryCard
