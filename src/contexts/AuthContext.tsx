@@ -12,7 +12,7 @@ import {
   updateProfile,
   type User
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { auth, db } from '../config/firebase';
 import type { AppUser, UserRole } from '../types';
@@ -148,6 +148,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function resetPassword(email: string) {
     setError(null);
     const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      const msg = 'Please enter a valid email address';
+      setError(msg);
+      throw new Error(msg);
+    }
+
+    // 1. Check if user account exists in Firestore
+    try {
+      const q = query(collection(db, 'users'), where('email', '==', cleanEmail));
+      const userSnap = await getDocs(q);
+      if (userSnap.empty) {
+        const msg = `No user account found with email address "${cleanEmail}". Please check for typos.`;
+        setError(msg);
+        throw new Error(msg);
+      }
+    } catch (err: any) {
+      if (err.message && err.message.includes('No user account found')) {
+        throw err;
+      }
+    }
+
+    // 2. Try custom Cloud Function if deployed
     try {
       const functions = getFunctions();
       const customResetCallable = httpsCallable<{ email: string }, { success: boolean; message: string }>(
@@ -155,15 +178,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         'sendCustomPasswordResetEmail'
       );
       await customResetCallable({ email: cleanEmail });
+      return;
     } catch (callableErr: any) {
-      console.warn('Custom password reset callable failed, trying standard Firebase SDK fallback:', callableErr);
-      try {
-        await sendPasswordResetEmail(auth, cleanEmail);
-      } catch (err: any) {
-        const msg = getAuthErrorMessage(err.code || callableErr?.code);
-        setError(msg);
-        throw new Error(msg);
-      }
+      console.warn('Cloud Function reset email unavailable, using client-side Firebase Auth email:', callableErr);
+    }
+
+    // 3. Fallback to client-side Firebase Auth sendPasswordResetEmail with redirect URL
+    try {
+      const actionCodeSettings = {
+        url: window.location.origin + '/login',
+        handleCodeInApp: false
+      };
+      await sendPasswordResetEmail(auth, cleanEmail, actionCodeSettings);
+    } catch (err: any) {
+      console.error('Firebase Auth reset error:', err);
+      const msg = getAuthErrorMessage(err.code);
+      setError(msg);
+      throw new Error(msg);
     }
   }
 
