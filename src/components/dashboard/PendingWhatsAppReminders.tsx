@@ -3,12 +3,14 @@
    ============================================================ */
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { getPendingReportingUsersForToday, generateWhatsAppReminderUrl, type PendingUserReporting } from '../../services/whatsappService';
 import { updateUserProfile } from '../../services/userService';
 import { showToast, LoadingSpinner } from '../shared';
 import { MessageSquare, Phone, CheckCircle, AlertTriangle, RefreshCw, Send, Save } from 'lucide-react';
 
 export function PendingWhatsAppReminders() {
+  const { appUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [pendingList, setPendingList] = useState<PendingUserReporting[]>([]);
   const [phoneEditMap, setPhoneEditMap] = useState<Record<string, string>>({});
@@ -16,12 +18,12 @@ export function PendingWhatsAppReminders() {
 
   useEffect(() => {
     loadPendingReps();
-  }, []);
+  }, [appUser]);
 
   async function loadPendingReps() {
     setLoading(true);
     try {
-      const list = await getPendingReportingUsersForToday();
+      const list = await getPendingReportingUsersForToday(appUser);
       setPendingList(list);
       
       const initialMap: Record<string, string> = {};

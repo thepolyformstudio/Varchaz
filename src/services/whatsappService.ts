@@ -23,32 +23,57 @@ export function formatWhatsAppPhone(phoneStr?: string): string {
   return cleaned;
 }
 
+import { fetchUsersInHierarchy } from './userService';
+
 /** Get list of approved sales reps who have NOT updated their daily sales report for today */
-export async function getPendingReportingUsersForToday(): Promise<PendingUserReporting[]> {
+export async function getPendingReportingUsersForToday(currentUser?: AppUser | null): Promise<PendingUserReporting[]> {
   const todayStr = new Date().toISOString().split('T')[0];
-
-  // 1. Fetch all approved users with role 'user'
-  const usersSnap = await getDocs(query(collection(db, 'users'), where('status', '==', 'approved'), where('role', '==', 'user')));
-  const users = usersSnap.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
-
-  // 2. Fetch all daily sales records for today's date
-  const salesSnap = await getDocs(query(collection(db, 'dailySales'), where('date', '==', todayStr)));
+  let users: AppUser[] = [];
   const reportedUserIds = new Set<string>();
-
-  salesSnap.docs.forEach(doc => {
-    const data = doc.data();
-    if (data.userId) {
-      reportedUserIds.add(data.userId);
-    }
-  });
-
-  // 3. Fetch all supervisors map for displaying supervisor names
-  const supervisorsSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'supervisor')));
   const supervisorMap = new Map<string, string>();
-  supervisorsSnap.docs.forEach(d => {
-    const data = d.data();
-    supervisorMap.set(d.id, data.displayName || data.email);
-  });
+
+  if (currentUser?.role === 'supervisor') {
+    // Supervisor view: query team members in hierarchy (complies with security rules)
+    try {
+      const teamUsers = await fetchUsersInHierarchy(currentUser.uid);
+      users = teamUsers.filter(u => u.status === 'approved' && u.role === 'user');
+
+      const salesSnap = await getDocs(
+        query(collection(db, 'dailySales'), where('supervisorId', '==', currentUser.uid), where('date', '==', todayStr))
+      );
+      salesSnap.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.userId) reportedUserIds.add(data.userId);
+      });
+
+      supervisorMap.set(currentUser.uid, currentUser.displayName || currentUser.email);
+    } catch (err) {
+      console.error('Error fetching supervisor team pending users:', err);
+    }
+  } else {
+    // Admin / Viewer view: query all users and all daily sales
+    try {
+      const usersSnap = await getDocs(query(collection(db, 'users'), where('status', '==', 'approved'), where('role', '==', 'user')));
+      users = usersSnap.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
+
+      const salesSnap = await getDocs(query(collection(db, 'dailySales'), where('date', '==', todayStr)));
+      salesSnap.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.userId) reportedUserIds.add(data.userId);
+      });
+
+      const supervisorsSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'supervisor')));
+      supervisorsSnap.docs.forEach(d => {
+        const data = d.data();
+        supervisorMap.set(d.id, data.displayName || data.email);
+      });
+    } catch (err) {
+      console.warn('Admin fetch failed, falling back to hierarchy query:', err);
+      if (currentUser?.uid) {
+        users = (await fetchUsersInHierarchy(currentUser.uid)).filter(u => u.status === 'approved' && u.role === 'user');
+      }
+    }
+  }
 
   // Filter pending users
   const pendingUsers = users.filter(u => !reportedUserIds.has(u.uid));
