@@ -58,6 +58,8 @@ export function PendingWhatsAppReminders() {
 
   const todayStr = new Date().toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 
+  const isSupervisor = appUser?.role === 'supervisor';
+
   return (
     <div className="card" style={{ marginBottom: '20px' }} id="pending-whatsapp-reminders-card">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
@@ -95,8 +97,8 @@ export function PendingWhatsAppReminders() {
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
                   <th style={{ padding: '10px 12px' }}>Sales Rep Name</th>
-                  <th style={{ padding: '10px 12px' }}>Supervisor</th>
-                  <th style={{ padding: '10px 12px' }}>WhatsApp Number</th>
+                  {!isSupervisor && <th style={{ padding: '10px 12px' }}>Supervisor</th>}
+                  {!isSupervisor && <th style={{ padding: '10px 12px' }}>WhatsApp Number</th>}
                   <th style={{ padding: '10px 12px', textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
@@ -113,31 +115,35 @@ export function PendingWhatsAppReminders() {
                         <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>{u.email}</div>
                       </td>
 
-                      <td style={{ padding: '10px 12px', color: '#475569' }}>
-                        {item.supervisorName || 'Unassigned'}
-                      </td>
+                      {!isSupervisor && (
+                        <td style={{ padding: '10px 12px', color: '#475569' }}>
+                          {item.supervisorName || 'Unassigned'}
+                        </td>
+                      )}
 
-                      <td style={{ padding: '10px 12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Phone size={14} color="#64748b" />
-                          <input
-                            type="text"
-                            className="input"
-                            style={{ padding: '4px 8px', fontSize: '12px', width: '140px' }}
-                            placeholder="e.g. 9876543210"
-                            value={phoneEditMap[u.uid] ?? ''}
-                            onChange={(e) => setPhoneEditMap({ ...phoneEditMap, [u.uid]: e.target.value })}
-                          />
-                          <button
-                            className="btn btn-ghost btn-xs"
-                            onClick={() => handleSavePhone(u.uid)}
-                            disabled={isSaving}
-                            title="Save Phone Number"
-                          >
-                            <Save size={14} />
-                          </button>
-                        </div>
-                      </td>
+                      {!isSupervisor && (
+                        <td style={{ padding: '10px 12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Phone size={14} color="#64748b" />
+                            <input
+                              type="text"
+                              className="input"
+                              style={{ padding: '4px 8px', fontSize: '12px', width: '140px' }}
+                              placeholder="e.g. 9876543210"
+                              value={phoneEditMap[u.uid] ?? ''}
+                              onChange={(e) => setPhoneEditMap({ ...phoneEditMap, [u.uid]: e.target.value })}
+                            />
+                            <button
+                              className="btn btn-ghost btn-xs"
+                              onClick={() => handleSavePhone(u.uid)}
+                              disabled={isSaving}
+                              title="Save Phone Number"
+                            >
+                              <Save size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
 
                       <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                         <a
