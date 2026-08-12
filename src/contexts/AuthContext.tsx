@@ -183,16 +183,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.warn('Cloud Function reset email unavailable, using client-side Firebase Auth email:', callableErr);
     }
 
-    // 3. Fallback to client-side Firebase Auth sendPasswordResetEmail with redirect URL
+    // 3. Fallback to standard client-side Firebase Auth sendPasswordResetEmail
     try {
-      const actionCodeSettings = {
-        url: window.location.origin + '/login',
-        handleCodeInApp: false
-      };
-      await sendPasswordResetEmail(auth, cleanEmail, actionCodeSettings);
+      await sendPasswordResetEmail(auth, cleanEmail);
     } catch (err: any) {
       console.error('Firebase Auth reset error:', err);
-      const msg = getAuthErrorMessage(err.code);
+      const friendlyMsg = getAuthErrorMessage(err.code);
+      const msg = (friendlyMsg === 'An authentication error occurred' && err.message)
+        ? err.message.replace(/^Firebase:\s*/, '').replace(/\s*\(auth\/.*\)\.?$/, '')
+        : friendlyMsg;
       setError(msg);
       throw new Error(msg);
     }
