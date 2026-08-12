@@ -41,7 +41,8 @@ export function UserMgmtPage() {
       displayName: u.displayName, 
       role: u.role, 
       status: u.status, 
-      supervisorId: u.supervisorId || '' 
+      supervisorId: u.supervisorId || '',
+      phone: u.phone || ''
     });
   };
 
@@ -148,6 +149,16 @@ export function UserMgmtPage() {
                   <option value="viewer">Viewer</option>
                   <option value="admin">Admin</option>
                 </select>
+              </div>
+              <div className="input-group">
+                <label className="input-label">WhatsApp / Phone Number</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="e.g. 9876543210" 
+                  value={editData.phone || ''} 
+                  onChange={e => setEditData({...editData, phone: e.target.value})} 
+                />
               </div>
               <div className="input-group">
                 <label className="input-label">Status</label>
