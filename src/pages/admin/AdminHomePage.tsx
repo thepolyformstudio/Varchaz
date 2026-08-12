@@ -6,6 +6,7 @@ import { LoadingSpinner, PageHeader } from '../../components/shared';
 import { countUsersByStatus, fetchAllSupervisors, fetchAllViewers } from '../../services/userService';
 import { fetchAllProducts } from '../../services/productService';
 import { Users, Shield, Eye, Package, Layers, FileBarChart, ClipboardList, Archive, Settings } from 'lucide-react';
+import { PendingWhatsAppReminders } from '../../components/dashboard/PendingWhatsAppReminders';
 
 export default function AdminHomePage() {
   const { appUser } = useAuth();
@@ -40,6 +41,8 @@ export default function AdminHomePage() {
   return (
     <div className="admin-page" id="admin-home">
       <PageHeader title="Admin Panel" subtitle="System overview and management" />
+
+      <PendingWhatsAppReminders />
 
       <div className="admin-stats-grid">
         <div className="admin-stat-card">

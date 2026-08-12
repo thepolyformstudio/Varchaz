@@ -17,6 +17,7 @@ import { fetchMonthlySales } from '../../services/salesService';
 import { countPendingApprovals } from '../../services/approvalService';
 import { Users, Target, TrendingUp, UserCheck, BarChart3, AlertTriangle, ClipboardList, Package, CheckSquare } from 'lucide-react';
 import type { AppUser, Product, ProductPerformance } from '../../types';
+import { PendingWhatsAppReminders } from '../../components/dashboard/PendingWhatsAppReminders';
 
 export default function SupervisorHomePage() {
   const { appUser } = useAuth();
@@ -78,6 +79,8 @@ export default function SupervisorHomePage() {
         title={`${getGreeting()}, ${appUser.displayName.split(' ')[0]}`}
         subtitle="Team performance overview"
       />
+
+      <PendingWhatsAppReminders />
 
       {/* Summary Cards */}
       <div className="summary-grid">
