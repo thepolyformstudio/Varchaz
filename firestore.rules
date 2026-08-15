@@ -66,7 +66,7 @@ service cloud.firestore {
       // Supervisors can update their team members' status
       // Admins can update anything
       allow update: if isAuthenticated() && (
-        (isOwner(userId) && onlyUpdatedFields(['displayName', 'phone', 'updatedAt'])) ||
+        (isOwner(userId) && onlyUpdatedFields(['displayName', 'phone', 'automailerEmail', 'updatedAt'])) ||
         isAdmin() ||
         (isSupervisor() && resource.data.supervisorId == request.auth.uid)
       );
