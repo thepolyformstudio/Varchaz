@@ -1,17 +1,32 @@
-# Project: Varchaz
+# Project: Varchaz — Session Memory
 
-## Stack
-- Frontend: React + Vite + TypeScript
-- Backend / Functions: Firebase Cloud Functions (Node.js / TypeScript)
-- Email Microservice: Python FastAPI (`email-service/`)
-- Database: Firebase Firestore
-- Hosting: Firebase Hosting (Frontend) & Vercel/Render (Email API)
+## Stack & Architecture
+- **Frontend**: React + Vite + TypeScript (Deployed on Firebase Hosting: `https://varchaz-app.web.app`)
+- **Cloud Functions**: Firebase Functions Node.js/TypeScript (`functions/src/index.ts`)
+- **Email Microservice**: Python FastAPI (`email-service/main.py` deployed on Vercel/Render)
+- **Database**: Firebase Firestore (`firestore.rules` updated for `automailerEmail`)
 
-## Key Updates & Features Implemented
-- **Sender Address**: `Varchaz Reports <varchazreport@gmail.com>`.
-- **Supervisor Automailer Control**: Supervisors can view and edit the target Automailer Email ID for themselves and for team members in [TeamManagementPage.tsx](file:///e:/Antigravity/Varchaz/src/pages/supervisor/TeamManagementPage.tsx).
-- **Dual-Type Auto Mailer Workflows**:
-  1. **Type A (Consolidated Report)**: Formatted **MTD Plan vs Ach** HTML table in email body + 2-sheet Excel file (Consolidated MTD & YTD) sent to **TO: Supervisor + All Team Members**.
-  2. **Type B (Individual User Report)**: Formatted **User MTD Plan vs Ach** HTML table in email body + 2-sheet Excel file (User MTD & YTD) sent to **TO: Particular User, CC: Supervisor**.
-- **Microservice CC Support**: Updated [main.py](file:///e:/Antigravity/Varchaz/email-service/main.py) to support `cc` recipients and `varchazreport@gmail.com` sender identity.
-- **In-Body HTML Table Formatting**: Renders formatted MTD tables in email body with `#1e293b` navy headers, zebra striping, color badges, and bold totals row.
+## Daily Auto Mailer Configuration & Rules
+1. **Sender Email Identity**:
+   - **`Varchaz Reports <varchazreport@gmail.com>`**
+   - Configured via Gmail SMTP (`smtp.gmail.com:587`) using App Password.
+
+2. **Schedule & Timing**:
+   - Automated Daily Trigger: Every day at **8:00 PM IST (20:00 Asia/Kolkata)** via Pub/Sub Cloud Function `scheduledDailyReport`.
+   - On-Demand Manual Trigger: Admin/Supervisor trigger via `sendDailyReportNow`.
+
+3. **Supervisor Automailer Target Email Management**:
+   - **Field**: `automailerEmail?: string` on `users/{userId}` Firestore document.
+   - **UI**: Managed in `TeamManagementPage.tsx` (`/supervisor/team`).
+   - **Permissions**: Visible & editable exclusively by Supervisors and Admins.
+   - **Security Rules**: `firestore.rules` updated to include `automailerEmail` in `onlyUpdatedFields`.
+
+4. **Dual Auto Mailer Email Formats**:
+   - **Type A (Consolidated Team Report)**:
+     - **Email Body**: App-styled HTML table for **Consolidated MTD Plan vs. Achievement**.
+     - **Attachment**: `.xlsx` workbook with 2 sheets (Sheet 1: Consolidated MTD, Sheet 2: Consolidated YTD).
+     - **Recipients**: TO Supervisor + All Team Members (using Supervisor-configured `automailerEmail`s).
+   - **Type B (Individual User Report)**:
+     - **Email Body**: App-styled HTML table for **User MTD Plan vs. Achievement**.
+     - **Attachment**: `.xlsx` workbook with 2 sheets (Sheet 1: User MTD, Sheet 2: User YTD).
+     - **Recipients**: TO Particular User (`automailerEmail`), CC Supervisor (`automailerEmail`).
