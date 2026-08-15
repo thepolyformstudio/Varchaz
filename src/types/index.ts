@@ -27,6 +27,7 @@ export interface AppUser {
   profileComplete: boolean;
   phone?: string;
   avatarUrl?: string;
+  automailerEmail?: string;
 }
 
 // ─── Product ──────────────────────────────────────────────

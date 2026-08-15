@@ -200,7 +200,7 @@ export const adminBulkApprove = functions.https.onCall(async (data, context) => 
 });
 
 // ──────────────────────────────────────────────────
-// 6. Daily Excel Report Core Generator & Dispatcher
+// 6. Daily Excel & Body Report Core Generator & Dispatcher
 // ──────────────────────────────────────────────────
 function formatNumberVal(num: number): number {
   return Math.round((num || 0) * 100) / 100;
@@ -211,16 +211,77 @@ function calcPctVal(plan: number, ach: number): number {
   return Math.round((ach / plan) * 10000) / 100;
 }
 
+/** Render a clean, app-styled HTML table for MTD Plan vs Achievement */
+function renderMtdHtmlTable(
+  title: string,
+  rows: Array<{ category: string; product: string; plan: number; ach: number }>,
+  totalPlan: number,
+  totalAch: number
+): string {
+  const totalPct = calcPctVal(totalPlan, totalAch);
+
+  let rowsHtml = '';
+  rows.forEach((r, idx) => {
+    const pct = calcPctVal(r.plan, r.ach);
+    const badgeBg = pct >= 100 ? '#dcfce7' : pct >= 80 ? '#fef3c7' : '#fee2e2';
+    const badgeColor = pct >= 100 ? '#15803d' : pct >= 80 ? '#b45309' : '#b91c1c';
+    const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+
+    rowsHtml += `
+      <tr style="background-color: ${rowBg}; border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px 12px; font-size: 13px; color: #475569;">${r.category}</td>
+        <td style="padding: 10px 12px; font-size: 13px; font-weight: 600; color: #0f172a;">${r.product}</td>
+        <td style="padding: 10px 12px; font-size: 13px; text-align: right; color: #334155;">${r.plan.toLocaleString('en-IN')}</td>
+        <td style="padding: 10px 12px; font-size: 13px; text-align: right; color: #334155;">${r.ach.toLocaleString('en-IN')}</td>
+        <td style="padding: 10px 12px; font-size: 13px; text-align: right;">
+          <span style="background-color: ${badgeBg}; color: ${badgeColor}; font-weight: bold; padding: 3px 8px; border-radius: 4px; font-size: 12px;">
+            ${pct}%
+          </span>
+        </td>
+      </tr>
+    `;
+  });
+
+  const totalBadgeBg = totalPct >= 100 ? '#dcfce7' : totalPct >= 80 ? '#fef3c7' : '#fee2e2';
+  const totalBadgeColor = totalPct >= 100 ? '#15803d' : totalPct >= 80 ? '#b45309' : '#b91c1c';
+
+  return `
+    <div style="margin-bottom: 24px;">
+      <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #0f172a; border-bottom: 2px solid #2563eb; padding-bottom: 6px; display: inline-block;">
+        ${title} (MTD Plan vs. Achievement)
+      </h3>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 8px; font-family: Arial, sans-serif; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-radius: 6px; overflow: hidden;">
+        <thead>
+          <tr style="background-color: #1e293b; color: #ffffff; text-align: left;">
+            <th style="padding: 12px; font-size: 13px; font-weight: bold; text-transform: uppercase;">Category</th>
+            <th style="padding: 12px; font-size: 13px; font-weight: bold; text-transform: uppercase;">Product</th>
+            <th style="padding: 12px; font-size: 13px; font-weight: bold; text-transform: uppercase; text-align: right;">Plan (MTD)</th>
+            <th style="padding: 12px; font-size: 13px; font-weight: bold; text-transform: uppercase; text-align: right;">Achievement (MTD)</th>
+            <th style="padding: 12px; font-size: 13px; font-weight: bold; text-transform: uppercase; text-align: right;">Achievement %</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+        <tfoot>
+          <tr style="background-color: #e2e8f0; font-weight: bold; border-top: 2px solid #cbd5e1;">
+            <td style="padding: 12px; font-size: 13px; color: #0f172a;">TOTAL</td>
+            <td style="padding: 12px; font-size: 13px; color: #0f172a;">GRAND TOTAL</td>
+            <td style="padding: 12px; font-size: 13px; text-align: right; color: #0f172a;">${totalPlan.toLocaleString('en-IN')}</td>
+            <td style="padding: 12px; font-size: 13px; text-align: right; color: #0f172a;">${totalAch.toLocaleString('en-IN')}</td>
+            <td style="padding: 12px; font-size: 13px; text-align: right;">
+              <span style="background-color: ${totalBadgeBg}; color: ${totalBadgeColor}; font-weight: bold; padding: 4px 10px; border-radius: 4px; font-size: 12px;">
+                ${totalPct}%
+              </span>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `;
+}
+
 async function generateAndSendDailyReport(overrideRecipient?: string) {
-  // Fetch config settings
-  const settingsDoc = await db.collection('settings').doc('dailyReportConfig').get();
-  const config = settingsDoc.exists ? settingsDoc.data() : null;
-  const recipientEmail = overrideRecipient || config?.recipientEmail || process.env.DAILY_REPORT_RECIPIENT_EMAIL || 'admin@varchaz.com';
-
-  if (!recipientEmail) {
-    throw new Error('No recipient email configured for daily report.');
-  }
-
   const now = new Date();
   const istOffset = 5.5 * 60 * 60 * 1000;
   const istDate = new Date(now.getTime() + istOffset);
@@ -249,16 +310,16 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
 
   // Fetch Firestore Collections
   const productsSnap = await db.collection('products').get();
-  const products = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const products: any[] = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
   const usersSnap = await db.collection('users').where('status', '==', 'approved').get();
-  const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const allUsers: any[] = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
   const monthlyPlansSnap = await db.collection('monthlyPlans').get();
-  const allMonthlyPlans = monthlyPlansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const allMonthlyPlans: any[] = monthlyPlansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
   const dailySalesSnap = await db.collection('dailySales').get();
-  const allDailySales = dailySalesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const allDailySales: any[] = dailySalesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
   // Helper maps
   const mtdPlansByUser: Record<string, Record<string, number>> = {};
@@ -309,215 +370,295 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
     }
   });
 
-  // Sheet 1: Consolidated MTD
-  const consolidatedMtdRows: any[] = [];
-  let grandTotalMtdPlan = 0;
-  let grandTotalMtdAch = 0;
-
-  products.forEach((prod: any) => {
-    const pId = prod.productId || prod.id;
-    let pPlan = 0;
-    let pAch = 0;
-    users.forEach((u: any) => {
-      pPlan += mtdPlansByUser[u.id]?.[pId] || 0;
-      pAch += mtdSalesByUser[u.id]?.[pId] || 0;
-    });
-
-    grandTotalMtdPlan += pPlan;
-    grandTotalMtdAch += pAch;
-
-    consolidatedMtdRows.push({
-      Category: prod.category || 'General',
-      Product: prod.name || prod.productName,
-      'Plan (MTD)': formatNumberVal(pPlan),
-      'Achievement (MTD)': formatNumberVal(pAch),
-      'Achievement %': `${calcPctVal(pPlan, pAch)}%`
-    });
-  });
-
-  consolidatedMtdRows.push({
-    Category: 'TOTAL',
-    Product: 'GRAND TOTAL',
-    'Plan (MTD)': formatNumberVal(grandTotalMtdPlan),
-    'Achievement (MTD)': formatNumberVal(grandTotalMtdAch),
-    'Achievement %': `${calcPctVal(grandTotalMtdPlan, grandTotalMtdAch)}%`
-  });
-
-  // Sheet 2: Consolidated YTD
-  const consolidatedYtdRows: any[] = [];
-  let grandTotalYtdPlan = 0;
-  let grandTotalYtdAch = 0;
-
-  products.forEach((prod: any) => {
-    const pId = prod.productId || prod.id;
-    let pPlan = 0;
-    let pAch = 0;
-    users.forEach((u: any) => {
-      pPlan += ytdPlansByUser[u.id]?.[pId] || 0;
-      pAch += ytdSalesByUser[u.id]?.[pId] || 0;
-    });
-
-    grandTotalYtdPlan += pPlan;
-    grandTotalYtdAch += pAch;
-
-    consolidatedYtdRows.push({
-      Category: prod.category || 'General',
-      Product: prod.name || prod.productName,
-      'Plan (YTD)': formatNumberVal(pPlan),
-      'Achievement (YTD)': formatNumberVal(pAch),
-      'Achievement %': `${calcPctVal(pPlan, pAch)}%`
-    });
-  });
-
-  consolidatedYtdRows.push({
-    Category: 'TOTAL',
-    Product: 'GRAND TOTAL',
-    'Plan (YTD)': formatNumberVal(grandTotalYtdPlan),
-    'Achievement (YTD)': formatNumberVal(grandTotalYtdAch),
-    'Achievement %': `${calcPctVal(grandTotalYtdPlan, grandTotalYtdAch)}%`
-  });
-
-  // Sheet 3: User Level MTD
-  const userMtdRows: any[] = [];
-  users.forEach((u: any) => {
-    const userName = u.displayName || u.email || 'User';
-    products.forEach((prod: any) => {
-      const pId = prod.productId || prod.id;
-      const pPlan = mtdPlansByUser[u.id]?.[pId] || 0;
-      const pAch = mtdSalesByUser[u.id]?.[pId] || 0;
-      userMtdRows.push({
-        'User Name': userName,
-        'User Email': u.email || '',
-        Category: prod.category || 'General',
-        Product: prod.name || prod.productName,
-        'Plan (MTD)': formatNumberVal(pPlan),
-        'Achievement (MTD)': formatNumberVal(pAch),
-        'Achievement %': `${calcPctVal(pPlan, pAch)}%`
-      });
-    });
-  });
-
-  // Sheet 4: User Level YTD
-  const userYtdRows: any[] = [];
-  users.forEach((u: any) => {
-    const userName = u.displayName || u.email || 'User';
-    products.forEach((prod: any) => {
-      const pId = prod.productId || prod.id;
-      const pPlan = ytdPlansByUser[u.id]?.[pId] || 0;
-      const pAch = ytdSalesByUser[u.id]?.[pId] || 0;
-      userYtdRows.push({
-        'User Name': userName,
-        'User Email': u.email || '',
-        Category: prod.category || 'General',
-        Product: prod.name || prod.productName,
-        'Plan (YTD)': formatNumberVal(pPlan),
-        'Achievement (YTD)': formatNumberVal(pAch),
-        'Achievement %': `${calcPctVal(pPlan, pAch)}%`
-      });
-    });
-  });
-
-  // Construct Excel Workbook
-  const wb = XLSX.utils.book_new();
-
-  const wsConsMtd = XLSX.utils.json_to_sheet(consolidatedMtdRows);
-  const wsConsYtd = XLSX.utils.json_to_sheet(consolidatedYtdRows);
-  const wsUserMtd = XLSX.utils.json_to_sheet(userMtdRows);
-  const wsUserYtd = XLSX.utils.json_to_sheet(userYtdRows);
-
-  XLSX.utils.book_append_sheet(wb, wsConsMtd, 'Consolidated MTD');
-  XLSX.utils.book_append_sheet(wb, wsConsYtd, 'Consolidated YTD');
-  XLSX.utils.book_append_sheet(wb, wsUserMtd, 'User MTD');
-  XLSX.utils.book_append_sheet(wb, wsUserYtd, 'User YTD');
-
-  const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-  const base64Excel = excelBuffer.toString('base64');
-
-  // Dispatch Email via Microservice
   const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
   const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
 
-  const mtdOverallPct = calcPctVal(grandTotalMtdPlan, grandTotalMtdAch);
-  const ytdOverallPct = calcPctVal(grandTotalYtdPlan, grandTotalYtdAch);
+  let totalEmailsDispatched = 0;
 
-  const htmlBody = `
-    <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 20px; color: #1e293b; background-color: #f8fafc; border-radius: 8px;">
-      <div style="background-color: #2563eb; color: #ffffff; padding: 20px; border-radius: 6px; text-align: center;">
-        <h2 style="margin: 0; font-size: 22px;">Varchaz Daily Performance Report</h2>
-        <p style="margin: 6px 0 0 0; font-size: 14px; opacity: 0.9;">Date: ${todayStr} | Consolidated & User Level MTD & YTD</p>
-      </div>
+  // Identify Supervisors & Group Team Members
+  const supervisors = allUsers.filter((u: any) => u.role === 'supervisor' || u.role === 'admin');
 
-      <div style="padding: 20px 0;">
-        <h3 style="margin-top: 0; color: #0f172a;">Executive Summary</h3>
+  for (const supervisor of supervisors) {
+    const supId = supervisor.id;
+    const supAutomailerEmail = supervisor.automailerEmail || supervisor.email;
+    const teamMembers = allUsers.filter((u: any) => u.supervisorId === supId || u.id === supId);
 
-        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
-          <div style="flex: 1; background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
-            <div style="font-size: 12px; color: #64748b; font-weight: bold; text-transform: uppercase;">MTD Achievement</div>
-            <div style="font-size: 24px; font-weight: bold; color: ${mtdOverallPct >= 80 ? '#16a34a' : '#d97706'}; margin-top: 4px;">${mtdOverallPct}%</div>
-            <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Plan: ${grandTotalMtdPlan.toLocaleString('en-IN')} | Ach: ${grandTotalMtdAch.toLocaleString('en-IN')}</div>
+    if (teamMembers.length === 0) continue;
+
+    // ──────────────────────────────────────────────────
+    // TYPE A: CONSOLIDATED TEAM REPORT
+    // ──────────────────────────────────────────────────
+    const consMtdRows: any[] = [];
+    const consYtdRows: any[] = [];
+    const consMtdTableData: Array<{ category: string; product: string; plan: number; ach: number }> = [];
+
+    let teamMtdPlanTotal = 0;
+    let teamMtdAchTotal = 0;
+    let teamYtdPlanTotal = 0;
+    let teamYtdAchTotal = 0;
+
+    products.forEach((prod: any) => {
+      const pId = prod.productId || prod.id;
+      let pMtdPlan = 0;
+      let pMtdAch = 0;
+      let pYtdPlan = 0;
+      let pYtdAch = 0;
+
+      teamMembers.forEach((u: any) => {
+        pMtdPlan += mtdPlansByUser[u.id]?.[pId] || 0;
+        pMtdAch += mtdSalesByUser[u.id]?.[pId] || 0;
+        pYtdPlan += ytdPlansByUser[u.id]?.[pId] || 0;
+        pYtdAch += ytdSalesByUser[u.id]?.[pId] || 0;
+      });
+
+      teamMtdPlanTotal += pMtdPlan;
+      teamMtdAchTotal += pMtdAch;
+      teamYtdPlanTotal += pYtdPlan;
+      teamYtdAchTotal += pYtdAch;
+
+      const categoryName = prod.category || 'General';
+      const productName = prod.name || prod.productName || 'Product';
+
+      consMtdTableData.push({
+        category: categoryName,
+        product: productName,
+        plan: formatNumberVal(pMtdPlan),
+        ach: formatNumberVal(pMtdAch)
+      });
+
+      consMtdRows.push({
+        Category: categoryName,
+        Product: productName,
+        'Plan (MTD)': formatNumberVal(pMtdPlan),
+        'Achievement (MTD)': formatNumberVal(pMtdAch),
+        'Achievement %': `${calcPctVal(pMtdPlan, pMtdAch)}%`
+      });
+
+      consYtdRows.push({
+        Category: categoryName,
+        Product: productName,
+        'Plan (YTD)': formatNumberVal(pYtdPlan),
+        'Achievement (YTD)': formatNumberVal(pYtdAch),
+        'Achievement %': `${calcPctVal(pYtdPlan, pYtdAch)}%`
+      });
+    });
+
+    consMtdRows.push({
+      Category: 'TOTAL',
+      Product: 'GRAND TOTAL',
+      'Plan (MTD)': formatNumberVal(teamMtdPlanTotal),
+      'Achievement (MTD)': formatNumberVal(teamMtdAchTotal),
+      'Achievement %': `${calcPctVal(teamMtdPlanTotal, teamMtdAchTotal)}%`
+    });
+
+    consYtdRows.push({
+      Category: 'TOTAL',
+      Product: 'GRAND TOTAL',
+      'Plan (YTD)': formatNumberVal(teamYtdPlanTotal),
+      'Achievement (YTD)': formatNumberVal(teamYtdAchTotal),
+      'Achievement %': `${calcPctVal(teamYtdPlanTotal, teamYtdAchTotal)}%`
+    });
+
+    // Create 2-Sheet Excel for Consolidated
+    const wbCons = XLSX.utils.book_new();
+    const wsConsMtd = XLSX.utils.json_to_sheet(consMtdRows);
+    const wsConsYtd = XLSX.utils.json_to_sheet(consYtdRows);
+    XLSX.utils.book_append_sheet(wbCons, wsConsMtd, 'Consolidated MTD');
+    XLSX.utils.book_append_sheet(wbCons, wsConsYtd, 'Consolidated YTD');
+    const excelBufferCons = XLSX.write(wbCons, { type: 'buffer', bookType: 'xlsx' });
+    const base64ExcelCons = excelBufferCons.toString('base64');
+
+    // In-Body HTML Table (MTD ONLY as per user directive)
+    const mtdTableHtmlCons = renderMtdHtmlTable('Team Consolidated', consMtdTableData, teamMtdPlanTotal, teamMtdAchTotal);
+
+    // List of Recipients for Consolidated Report (Supervisor + Team Members)
+    const consRecipients = Array.from(new Set(
+      overrideRecipient
+        ? [overrideRecipient]
+        : teamMembers.map((u: any) => u.automailerEmail || u.email).filter(Boolean)
+    ));
+
+    if (consRecipients.length > 0) {
+      const htmlConsBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 680px; margin: 0 auto; padding: 20px; color: #1e293b; background-color: #f8fafc; border-radius: 8px;">
+          <div style="background-color: #2563eb; color: #ffffff; padding: 20px; border-radius: 6px; text-align: center;">
+            <h2 style="margin: 0; font-size: 22px;">Varchaz — Consolidated Team Performance Report</h2>
+            <p style="margin: 6px 0 0 0; font-size: 14px; opacity: 0.9;">Team: ${supervisor.displayName || 'Supervisor'} | Date: ${todayStr}</p>
           </div>
-          <div style="flex: 1; background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
-            <div style="font-size: 12px; color: #64748b; font-weight: bold; text-transform: uppercase;">YTD Achievement</div>
-            <div style="font-size: 24px; font-weight: bold; color: ${ytdOverallPct >= 80 ? '#16a34a' : '#d97706'}; margin-top: 4px;">${ytdOverallPct}%</div>
-            <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Plan: ${grandTotalYtdPlan.toLocaleString('en-IN')} | Ach: ${grandTotalYtdAch.toLocaleString('en-IN')}</div>
+
+          <div style="padding: 20px 0;">
+            ${mtdTableHtmlCons}
+
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 16px;">
+              <p style="font-size: 13px; line-height: 1.5; color: #475569; margin: 0;">
+                ℹ️ <strong>Note:</strong> The full Year-to-Date (YTD Plan vs. Achievement) report is attached as an Excel workbook (<strong>Varchaz_Consolidated_Daily_Report_${todayStr}.xlsx</strong>) with separate MTD and YTD sheets.
+              </p>
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; text-align: center; color: #94a3b8; font-size: 11px;">
+            <p style="margin: 0;">Automated email generated by Varchaz Performance System via VarchazReport@gmail.com.</p>
           </div>
         </div>
+      `;
 
-        <p style="font-size: 14px; line-height: 1.5; color: #334155;">
-          Please find attached the detailed Excel workbook (<strong>Varchaz_Daily_Report_${todayStr}.xlsx</strong>) containing full Consolidated and User-level MTD and YTD Plan vs Achievement performance reports across all active products.
-        </p>
+      await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify({
+          to: consRecipients,
+          subject: `[Varchaz] Consolidated Team Daily Report - MTD & YTD (${todayStr})`,
+          html: htmlConsBody,
+          text: `Varchaz Consolidated Daily Report (${todayStr}). Please view MTD in body and attached Excel for YTD.`,
+          attachments: [
+            {
+              filename: `Varchaz_Consolidated_Daily_Report_${todayStr}.xlsx`,
+              content: base64ExcelCons,
+              content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            }
+          ]
+        })
+      });
+      totalEmailsDispatched++;
+    }
 
-        <ul style="font-size: 13px; color: #475569; padding-left: 20px;">
-          <li><strong>Consolidated MTD:</strong> Overall product-wise achievement for current month</li>
-          <li><strong>Consolidated YTD:</strong> Overall product-wise achievement for current Financial Year</li>
-          <li><strong>User MTD:</strong> Rep-by-rep product-wise MTD achievement</li>
-          <li><strong>User YTD:</strong> Rep-by-rep product-wise YTD achievement</li>
-        </ul>
-      </div>
+    // ──────────────────────────────────────────────────
+    // TYPE B: INDIVIDUAL USER LEVEL REPORTS (TO: User, CC: Supervisor)
+    // ──────────────────────────────────────────────────
+    for (const member of teamMembers) {
+      if (member.id === supId) continue; // Skip supervisor self in individual pass
 
-      <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; text-align: center; color: #94a3b8; font-size: 11px;">
-        <p style="margin: 0;">Automated email generated by Varchaz Performance Management System.</p>
-      </div>
-    </div>
-  `;
+      const userTargetEmail = member.automailerEmail || member.email;
+      if (!userTargetEmail) continue;
 
-  const emailPayload = {
-    to: recipientEmail,
-    subject: `[Varchaz] Daily Performance Report - MTD & YTD (${todayStr})`,
-    html: htmlBody,
-    text: `Varchaz Daily Performance Report (${todayStr}). MTD Ach: ${mtdOverallPct}%, YTD Ach: ${ytdOverallPct}%. Please see attached Excel file.`,
-    attachments: [
-      {
-        filename: `Varchaz_Daily_Report_${todayStr}.xlsx`,
-        content: base64Excel,
-        content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      }
-    ]
-  };
+      const userMtdRows: any[] = [];
+      const userYtdRows: any[] = [];
+      const userMtdTableData: Array<{ category: string; product: string; plan: number; ach: number }> = [];
 
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey
-    },
-    body: JSON.stringify(emailPayload)
-  });
+      let userMtdPlanTotal = 0;
+      let userMtdAchTotal = 0;
+      let userYtdPlanTotal = 0;
+      let userYtdAchTotal = 0;
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Email microservice returned ${response.status}: ${errText}`);
+      products.forEach((prod: any) => {
+        const pId = prod.productId || prod.id;
+        const pMtdPlan = mtdPlansByUser[member.id]?.[pId] || 0;
+        const pMtdAch = mtdSalesByUser[member.id]?.[pId] || 0;
+        const pYtdPlan = ytdPlansByUser[member.id]?.[pId] || 0;
+        const pYtdAch = ytdSalesByUser[member.id]?.[pId] || 0;
+
+        userMtdPlanTotal += pMtdPlan;
+        userMtdAchTotal += pMtdAch;
+        userYtdPlanTotal += pYtdPlan;
+        userYtdAchTotal += pYtdAch;
+
+        const categoryName = prod.category || 'General';
+        const productName = prod.name || prod.productName || 'Product';
+
+        userMtdTableData.push({
+          category: categoryName,
+          product: productName,
+          plan: formatNumberVal(pMtdPlan),
+          ach: formatNumberVal(pMtdAch)
+        });
+
+        userMtdRows.push({
+          Category: categoryName,
+          Product: productName,
+          'Plan (MTD)': formatNumberVal(pMtdPlan),
+          'Achievement (MTD)': formatNumberVal(pMtdAch),
+          'Achievement %': `${calcPctVal(pMtdPlan, pMtdAch)}%`
+        });
+
+        userYtdRows.push({
+          Category: categoryName,
+          Product: productName,
+          'Plan (YTD)': formatNumberVal(pYtdPlan),
+          'Achievement (YTD)': formatNumberVal(pYtdAch),
+          'Achievement %': `${calcPctVal(pYtdPlan, pYtdAch)}%`
+        });
+      });
+
+      userMtdRows.push({
+        Category: 'TOTAL',
+        Product: 'GRAND TOTAL',
+        'Plan (MTD)': formatNumberVal(userMtdPlanTotal),
+        'Achievement (MTD)': formatNumberVal(userMtdAchTotal),
+        'Achievement %': `${calcPctVal(userMtdPlanTotal, userMtdAchTotal)}%`
+      });
+
+      userYtdRows.push({
+        Category: 'TOTAL',
+        Product: 'GRAND TOTAL',
+        'Plan (YTD)': formatNumberVal(userYtdPlanTotal),
+        'Achievement (YTD)': formatNumberVal(userYtdAchTotal),
+        'Achievement %': `${calcPctVal(userYtdPlanTotal, userYtdAchTotal)}%`
+      });
+
+      // Create 2-Sheet Excel for User
+      const wbUser = XLSX.utils.book_new();
+      const wsUserMtd = XLSX.utils.json_to_sheet(userMtdRows);
+      const wsUserYtd = XLSX.utils.json_to_sheet(userYtdRows);
+      XLSX.utils.book_append_sheet(wbUser, wsUserMtd, 'User MTD');
+      XLSX.utils.book_append_sheet(wbUser, wsUserYtd, 'User YTD');
+      const excelBufferUser = XLSX.write(wbUser, { type: 'buffer', bookType: 'xlsx' });
+      const base64ExcelUser = excelBufferUser.toString('base64');
+
+      // In-Body HTML Table for User (MTD ONLY)
+      const mtdTableHtmlUser = renderMtdHtmlTable(member.displayName || 'Performance', userMtdTableData, userMtdPlanTotal, userMtdAchTotal);
+
+      const htmlUserBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 680px; margin: 0 auto; padding: 20px; color: #1e293b; background-color: #f8fafc; border-radius: 8px;">
+          <div style="background-color: #2563eb; color: #ffffff; padding: 20px; border-radius: 6px; text-align: center;">
+            <h2 style="margin: 0; font-size: 22px;">Varchaz — Daily Performance Report</h2>
+            <p style="margin: 6px 0 0 0; font-size: 14px; opacity: 0.9;">User: ${member.displayName} | Date: ${todayStr}</p>
+          </div>
+
+          <div style="padding: 20px 0;">
+            ${mtdTableHtmlUser}
+
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 16px;">
+              <p style="font-size: 13px; line-height: 1.5; color: #475569; margin: 0;">
+                ℹ️ <strong>Note:</strong> Your full Year-to-Date (YTD) performance report is attached as an Excel file (<strong>Varchaz_Daily_Report_${member.displayName.replace(/\s+/g, '_')}_${todayStr}.xlsx</strong>) containing both MTD and YTD sheets.
+              </p>
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; text-align: center; color: #94a3b8; font-size: 11px;">
+            <p style="margin: 0;">Automated email generated by Varchaz Performance System via VarchazReport@gmail.com.</p>
+          </div>
+        </div>
+      `;
+
+      await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify({
+          to: overrideRecipient || userTargetEmail,
+          cc: overrideRecipient ? undefined : supAutomailerEmail,
+          subject: `[Varchaz] Daily Performance Report - ${member.displayName} (${todayStr})`,
+          html: htmlUserBody,
+          text: `Varchaz Daily Report for ${member.displayName} (${todayStr}). Please view MTD in body and attached Excel for YTD.`,
+          attachments: [
+            {
+              filename: `Varchaz_Daily_Report_${member.displayName.replace(/\s+/g, '_')}_${todayStr}.xlsx`,
+              content: base64ExcelUser,
+              content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            }
+          ]
+        })
+      });
+      totalEmailsDispatched++;
+    }
   }
 
   await db.collection('settings').doc('dailyReportConfig').set({
-    recipientEmail,
-    isEnabled: config?.isEnabled ?? true,
     lastSentAt: admin.firestore.FieldValue.serverTimestamp(),
     lastStatus: 'success',
-    lastRecipient: recipientEmail
+    lastCount: totalEmailsDispatched
   }, { merge: true });
 
-  return { success: true, recipient: recipientEmail, date: todayStr };
+  return { success: true, count: totalEmailsDispatched, date: todayStr };
 }
 
 // ──────────────────────────────────────────────────

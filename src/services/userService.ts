@@ -107,6 +107,15 @@ export async function reactivateUser(uid: string): Promise<void> {
   });
 }
 
+/** Update user's automailer target email ID (Supervisor / Admin access) */
+export async function updateUserAutomailerEmail(uid: string, automailerEmail: string): Promise<void> {
+  await updateDoc(doc(db, USERS_COL, uid), {
+    automailerEmail: automailerEmail.trim(),
+    updatedAt: serverTimestamp()
+  });
+}
+
+
 /** Reassign user to a different supervisor */
 export async function reassignUser(uid: string, newSupervisorId: string): Promise<void> {
   await updateDoc(doc(db, USERS_COL, uid), {
