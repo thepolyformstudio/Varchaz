@@ -1,0 +1,32 @@
+name: Varchaz Daily Auto Mailer Cron
+
+on:
+  schedule:
+    # 14:30 UTC = 20:00 (8:00 PM) IST
+    - cron: '30 14 * * *'
+  workflow_dispatch:
+
+jobs:
+  send-daily-report:
+    name: Generate and Dispatch Daily Performance Emails
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Project Dependencies
+        run: npm ci || npm install
+
+      - name: Execute Daily Performance Auto Mailer
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          EMAIL_API_URL: 'https://varchaz-email-api-sigma.vercel.app/send'
+          EMAIL_API_KEY: 'your_super_secret_api_key_here'
+        run: node scripts/sendDailyReportCron.cjs
