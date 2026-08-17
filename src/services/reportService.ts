@@ -99,9 +99,36 @@ export async function triggerDailyReportNow(recipientEmail?: string): Promise<{ 
     }
   }
 
+function getCategoryRank(category?: string): number {
+  const cat = (category || '').toLowerCase().trim();
+  if (cat.includes('liabilit')) return 1;
+  if (cat.includes('retail asset') || cat === 'retail assets') return 2;
+  if (cat.includes('tpp')) return 3;
+  if (cat.includes('asset')) return 4;
+  if (cat.includes('other')) return 5;
+  return 6;
+}
+
+function sortProductsByCategoryPriority(productsList: any[]): any[] {
+  return [...productsList].sort((a, b) => {
+    const rankA = getCategoryRank(a.category);
+    const rankB = getCategoryRank(b.category);
+
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+    const catComp = (a.category || '').localeCompare(b.category || '');
+    if (catComp !== 0) return catComp;
+    const nameA = a.name || a.productName || '';
+    const nameB = b.name || b.productName || '';
+    return nameA.localeCompare(nameB);
+  });
+}
+
   // Fetch Firestore Collections
   const productsSnap = await getDocs(collection(db, 'products'));
-  const products = productsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const rawProducts = productsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const products = sortProductsByCategoryPriority(rawProducts);
 
   const usersSnap = await getDocs(query(collection(db, 'users'), where('status', '==', 'approved')));
   const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));

@@ -202,6 +202,32 @@ export const adminBulkApprove = functions.https.onCall(async (data, context) => 
 // ──────────────────────────────────────────────────
 // 6. Daily Excel & Body Report Core Generator & Dispatcher
 // ──────────────────────────────────────────────────
+function getCategoryRank(category: string): number {
+  const cat = (category || '').toLowerCase().trim();
+  if (cat.includes('liabilit')) return 1;
+  if (cat.includes('retail asset') || cat === 'retail assets') return 2;
+  if (cat.includes('tpp')) return 3;
+  if (cat.includes('asset')) return 4;
+  if (cat.includes('other')) return 5;
+  return 6;
+}
+
+function sortProductsByCategoryPriority(productsList: any[]): any[] {
+  return [...productsList].sort((a, b) => {
+    const rankA = getCategoryRank(a.category);
+    const rankB = getCategoryRank(b.category);
+
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+    const catComp = (a.category || '').localeCompare(b.category || '');
+    if (catComp !== 0) return catComp;
+    const nameA = a.name || a.productName || '';
+    const nameB = b.name || b.productName || '';
+    return nameA.localeCompare(nameB);
+  });
+}
+
 function formatNumberVal(num: number): number {
   return Math.round((num || 0) * 100) / 100;
 }
@@ -310,7 +336,8 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
 
   // Fetch Firestore Collections
   const productsSnap = await db.collection('products').get();
-  const products: any[] = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const rawProducts: any[] = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const products: any[] = sortProductsByCategoryPriority(rawProducts);
 
   const usersSnap = await db.collection('users').where('status', '==', 'approved').get();
   const allUsers: any[] = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));

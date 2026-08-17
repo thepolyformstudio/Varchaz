@@ -38,6 +38,32 @@ function initializeFirebase() {
   });
 }
 
+function getCategoryRank(category) {
+  const cat = (category || '').toLowerCase().trim();
+  if (cat.includes('liabilit')) return 1;
+  if (cat.includes('retail asset') || cat === 'retail assets') return 2;
+  if (cat.includes('tpp')) return 3;
+  if (cat.includes('asset')) return 4;
+  if (cat.includes('other')) return 5;
+  return 6;
+}
+
+function sortProductsByCategoryPriority(productsList) {
+  return [...productsList].sort((a, b) => {
+    const rankA = getCategoryRank(a.category);
+    const rankB = getCategoryRank(b.category);
+
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+    const catComp = (a.category || '').localeCompare(b.category || '');
+    if (catComp !== 0) return catComp;
+    const nameA = a.name || a.productName || '';
+    const nameB = b.name || b.productName || '';
+    return nameA.localeCompare(nameB);
+  });
+}
+
 function formatNumberVal(num) {
   return Math.round((num || 0) * 100) / 100;
 }
@@ -144,7 +170,8 @@ async function runDailyReportCron() {
 
   // Fetch Firestore Collections
   const productsSnap = await db.collection('products').get();
-  const products = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const rawProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const products = sortProductsByCategoryPriority(rawProducts);
 
   const usersSnap = await db.collection('users').where('status', '==', 'approved').get();
   const allUsers = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
