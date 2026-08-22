@@ -402,13 +402,15 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
 
   let totalEmailsDispatched = 0;
 
-  // Identify Supervisors & Group Team Members
-  const supervisors = allUsers.filter((u: any) => u.role === 'supervisor' || u.role === 'admin');
+  // Identify Supervisors & Group Team Members (Restricted to users and supervisors only)
+  const supervisors = allUsers.filter((u: any) => u.role === 'supervisor');
 
   for (const supervisor of supervisors) {
     const supId = supervisor.id;
     const supAutomailerEmail = supervisor.automailerEmail || supervisor.email;
-    const teamMembers = allUsers.filter((u: any) => u.supervisorId === supId || u.id === supId);
+    const teamMembers = allUsers.filter((u: any) => 
+      (u.role === 'user' || u.role === 'supervisor') && (u.supervisorId === supId || u.id === supId)
+    );
 
     if (teamMembers.length === 0) continue;
 
@@ -726,6 +728,230 @@ export const sendDailyReportNow = functions.https.onCall(async (data, context) =
   } catch (err: any) {
     console.error('Error generating daily report:', err);
     throw new functions.https.HttpsError('internal', err.message || 'Failed to send daily report email');
+  }
+});
+
+// ──────────────────────────────────────────────────
+// 8b. Morning User Nudge Email Generator (Target: Users / Team Members Only)
+// ──────────────────────────────────────────────────
+async function generateAndSendMorningUserNudges(overrideRecipient?: string) {
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(now.getTime() + istOffset);
+  const todayStr = istDate.toISOString().split('T')[0]; // YYYY-MM-DD
+  const currentMonthStr = todayStr.substring(0, 7); // YYYY-MM
+
+  // Fetch approved users with role === 'user' (Team Members only)
+  const usersSnap = await db.collection('users')
+    .where('status', '==', 'approved')
+    .get();
+  
+  const teamUsers: any[] = usersSnap.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter((u: any) => u.role === 'user');
+
+  if (teamUsers.length === 0) {
+    return { success: true, count: 0, date: todayStr, message: 'No approved users with role "user" found.' };
+  }
+
+  // Fetch products, monthly plans, and daily sales
+  const productsSnap = await db.collection('products').get();
+  const rawProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const products: any[] = sortProductsByCategoryPriority(rawProducts);
+
+  const monthlyPlansSnap = await db.collection('monthlyPlans').get();
+  const allMonthlyPlans: any[] = monthlyPlansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  const dailySalesSnap = await db.collection('dailySales').get();
+  const allDailySales: any[] = dailySalesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  // Helper maps for MTD plans and sales by user
+  const mtdPlansByUser: Record<string, Record<string, number>> = {};
+  allMonthlyPlans.forEach((mp: any) => {
+    if (mp.month === currentMonthStr && mp.userId) {
+      if (!mtdPlansByUser[mp.userId]) mtdPlansByUser[mp.userId] = {};
+      Object.entries(mp.products || {}).forEach(([pId, val]) => {
+        mtdPlansByUser[mp.userId][pId] = (mtdPlansByUser[mp.userId][pId] || 0) + Number(val || 0);
+      });
+    }
+  });
+
+  const mtdSalesByUser: Record<string, Record<string, number>> = {};
+  allDailySales.forEach((ds: any) => {
+    if (ds.date && ds.date.substring(0, 7) === currentMonthStr && ds.date <= todayStr && ds.userId) {
+      if (!mtdSalesByUser[ds.userId]) mtdSalesByUser[ds.userId] = {};
+      Object.entries(ds.products || {}).forEach(([pId, val]) => {
+        mtdSalesByUser[ds.userId][pId] = (mtdSalesByUser[ds.userId][pId] || 0) + Number(val || 0);
+      });
+    }
+  });
+
+  const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
+  const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
+
+  let emailsDispatched = 0;
+
+  for (const user of teamUsers) {
+    const userTargetEmail = overrideRecipient || user.automailerEmail || user.email;
+    if (!userTargetEmail) continue;
+
+    // Filter supervisor active products if user has supervisorId
+    let userProducts = products;
+    if (user.supervisorId) {
+      const supProdDoc = await db.collection('supervisorProducts').doc(user.supervisorId).get();
+      if (supProdDoc.exists) {
+        const activeProductIds: string[] = supProdDoc.data()?.activeProductIds || [];
+        if (activeProductIds.length > 0) {
+          userProducts = products.filter(p => activeProductIds.includes(p.productId || p.id));
+        }
+      }
+    }
+
+    const goodProducts: Array<{ name: string; plan: number; ach: number; pct: number }> = [];
+    const inactiveProducts: Array<{ name: string; plan: number; ach: number }> = [];
+
+    userProducts.forEach((prod: any) => {
+      const pId = prod.productId || prod.id;
+      const plan = mtdPlansByUser[user.id]?.[pId] || 0;
+      const ach = mtdSalesByUser[user.id]?.[pId] || 0;
+      const pct = plan > 0 ? (ach / plan) * 100 : (ach > 0 ? 100 : 0);
+
+      if (ach > 0) {
+        goodProducts.push({
+          name: prod.name || prod.productName || 'Product',
+          plan: formatNumberVal(plan),
+          ach: formatNumberVal(ach),
+          pct: Math.round(pct * 10) / 10
+        });
+      } else {
+        inactiveProducts.push({
+          name: prod.name || prod.productName || 'Product',
+          plan: formatNumberVal(plan),
+          ach: formatNumberVal(ach)
+        });
+      }
+    });
+
+    const userName = user.displayName || 'Team Member';
+
+    // HTML Email Template
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; padding: 20px; color: #1e293b; background-color: #f8fafc; border-radius: 8px;">
+        <div style="background-color: #2563eb; color: #ffffff; padding: 20px; border-radius: 6px; text-align: center;">
+          <h2 style="margin: 0; font-size: 22px;">Varchaz — Daily Morning Performance Nudge</h2>
+          <p style="margin: 6px 0 0 0; font-size: 14px; opacity: 0.9;">Hello ${userName} | Date: ${todayStr}</p>
+        </div>
+
+        <div style="padding: 20px 0;">
+          ${goodProducts.length > 0 ? `
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+              <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 16px;">🟢 Doing Great! Active Products & Progress</h3>
+              <p style="margin: 0 0 12px 0; font-size: 13px; color: #15803d;">
+                Great momentum on these products! You are nearing your monthly plan targets. Keep pushing to complete 100%:
+              </p>
+              <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #166534;">
+                ${goodProducts.map(p => `
+                  <li style="margin-bottom: 6px;">
+                    <strong>${p.name}</strong>: Achieved <strong>${p.ach}</strong> / Plan <strong>${p.plan}</strong> (${p.pct}% target reached)
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+          ` : ''}
+
+          ${inactiveProducts.length > 0 ? `
+            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+              <h3 style="margin: 0 0 8px 0; color: #9f1239; font-size: 16px;">⚠️ Action Required: Inactive Products MTD (${inactiveProducts.length})</h3>
+              <p style="margin: 0 0 12px 0; font-size: 13px; color: #be123c;">
+                You currently have 0 sales reported for the following products this month:
+              </p>
+              <ul style="margin: 0 0 16px 0; padding-left: 20px; font-size: 13px; color: #9f1239;">
+                ${inactiveProducts.map(p => `
+                  <li style="margin-bottom: 6px;">
+                    <strong>${p.name}</strong> (Target Plan: ${p.plan})
+                  </li>
+                `).join('')}
+              </ul>
+
+              <div style="background: #ffffff; border: 1px dashed #fda4af; border-radius: 6px; padding: 14px;">
+                <h4 style="margin: 0 0 8px 0; color: #881337; font-size: 14px;">📋 Supervisor Review & Reflection Questions</h4>
+                <p style="margin: 0 0 8px 0; font-size: 12px; color: #475569;">
+                  Please review the following check-in questions to prepare your active plan:
+                </p>
+                <ol style="margin: 0; padding-left: 20px; font-size: 13px; color: #1e293b; line-height: 1.6;">
+                  <li><strong>What actions are you taking</strong> to get active on these products?</li>
+                  <li><strong>What support do you require</strong> from your supervisor or team?</li>
+                  <li><strong>How many active leads</strong> do you currently have for each of these products?</li>
+                  <li><strong>If leads are none or low:</strong> How many customer engagements have you carried out to generate new leads?</li>
+                </ol>
+              </div>
+            </div>
+          ` : ''}
+
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
+            <p style="font-size: 13px; line-height: 1.5; color: #475569; margin: 0;">
+              💡 <strong>Daily Tip:</strong> Log in to Varchaz to update your daily sales report and track your progress against monthly targets.
+            </p>
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; text-align: center; color: #94a3b8; font-size: 11px;">
+          <p style="margin: 0;">Automated daily morning encouragement sent by Varchaz Performance System via VarchazReport@gmail.com.</p>
+        </div>
+      </div>
+    `;
+
+    await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+      body: JSON.stringify({
+        to: userTargetEmail,
+        subject: `[Varchaz] Morning Performance Check-in & Action Plan (${todayStr})`,
+        html: htmlBody,
+        text: `Varchaz Morning Performance Check-in for ${userName} (${todayStr}). Please log in to review your active products and lead generation.`
+      })
+    });
+
+    emailsDispatched++;
+  }
+
+  return { success: true, count: emailsDispatched, date: todayStr };
+}
+
+// Scheduled Morning Cloud Function (8:00 AM IST / 08:00 Asia/Kolkata)
+export const scheduledMorningUserNudge = functions.pubsub
+  .schedule('0 8 * * *')
+  .timeZone('Asia/Kolkata')
+  .onRun(async (context) => {
+    const settingsDoc = await db.collection('settings').doc('dailyReportConfig').get();
+    const isEnabled = settingsDoc.exists ? settingsDoc.data()?.isEnabled !== false : true;
+    if (!isEnabled) {
+      console.log('Daily report is currently disabled in settings. Skipping morning nudge.');
+      return null;
+    }
+    console.log('Starting automated morning user nudge execution...');
+    return await generateAndSendMorningUserNudges();
+  });
+
+// HTTPS Callable: Trigger Morning User Nudges Manually
+export const sendMorningUserNudgeNow = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
+  }
+
+  const callerDoc = await db.collection('users').doc(context.auth.uid).get();
+  const callerRole = callerDoc.data()?.role;
+  if (callerRole !== 'admin' && callerRole !== 'supervisor') {
+    throw new functions.https.HttpsError('permission-denied', 'Only admins or supervisors can trigger morning user nudge emails');
+  }
+
+  const { recipientEmail } = data || {};
+  try {
+    const result = await generateAndSendMorningUserNudges(recipientEmail);
+    return result;
+  } catch (err: any) {
+    console.error('Error sending morning user nudge:', err);
+    throw new functions.https.HttpsError('internal', err.message || 'Failed to send morning user nudge email');
   }
 });
 

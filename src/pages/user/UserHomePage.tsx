@@ -13,7 +13,7 @@ import { formatIndianNumber, formatPercent } from '../../utils/formatters';
 import { fetchActiveProducts, fetchSupervisorProducts } from '../../services/productService';
 import { fetchMonthlyPlan, fetchPlansForMonths } from '../../services/planService';
 import { fetchMonthlySales, fetchSalesMultiMonth, hasReportedToday } from '../../services/salesService';
-import { Target, TrendingUp, BarChart3, Calendar, FileText, AlertTriangle } from 'lucide-react';
+import { Target, TrendingUp, BarChart3, Calendar, FileText, AlertTriangle, CheckCircle2, HelpCircle, Sparkles } from 'lucide-react';
 import type { Product, ProductPerformance } from '../../types';
 
 export default function UserHomePage() {
@@ -77,6 +77,9 @@ export default function UserHomePage() {
   const mtdTotals = calcGrandTotal(mtdData);
   const ytdTotals = calcGrandTotal(ytdData);
 
+  const goodProducts = mtdData.filter(p => p.achievement > 0);
+  const inactiveProducts = mtdData.filter(p => p.achievement === 0);
+
   return (
     <div className="dashboard-page" id="user-home">
       <PageHeader
@@ -86,6 +89,66 @@ export default function UserHomePage() {
 
       {!reported && (
         <MissingReportAlert date={getToday()} onAction={() => navigate('/report')} />
+      )}
+
+      {/* Dynamic Product Performance Banners (Team Members / Users Only) */}
+      {appUser.role === 'user' && (goodProducts.length > 0 || inactiveProducts.length > 0) && (
+        <div className="user-insights-container">
+          {/* Good Performance Banner */}
+          {goodProducts.length > 0 && (
+            <div className="user-insight-banner good-performance">
+              <div className="insight-banner-header">
+                <Sparkles size={20} />
+                <span>Great Progress! You are doing good on these products</span>
+              </div>
+              <div className="insight-banner-desc">
+                Keep up the strong momentum to complete 100% of your target on these active products:
+              </div>
+              <div className="insight-product-chips">
+                {goodProducts.map(p => (
+                  <span key={p.productId} className="insight-chip">
+                    <CheckCircle2 size={14} />
+                    {p.productName}: {formatIndianNumber(p.achievement)} ({formatPercent(p.achievementPct)})
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Inactive Products Banner & Supervisor Reflection Prompt */}
+          {inactiveProducts.length > 0 && (
+            <div className="user-insight-banner inactive-performance">
+              <div className="insight-banner-header">
+                <AlertTriangle size={20} />
+                <span>Attention Required: Inactive Products MTD ({inactiveProducts.length})</span>
+              </div>
+              <div className="insight-banner-desc">
+                You have zero sales reported so far this month for the following products:
+              </div>
+              <div className="insight-product-chips">
+                {inactiveProducts.map(p => (
+                  <span key={p.productId} className="insight-chip">
+                    <AlertTriangle size={14} />
+                    {p.productName} (Plan: {formatIndianNumber(p.plan)})
+                  </span>
+                ))}
+              </div>
+
+              <div className="supervisor-questions-box">
+                <div className="supervisor-questions-title">
+                  <HelpCircle size={15} />
+                  <span>Supervisor Check-In & Action Plan</span>
+                </div>
+                <ol className="supervisor-questions-list">
+                  <li><strong>What actions are you taking</strong> to get active on these products?</li>
+                  <li><strong>What support do you require</strong> from your supervisor or team?</li>
+                  <li><strong>How many active leads</strong> do you currently have for each of these products?</li>
+                  <li><strong>If leads are none or low:</strong> How many customer engagements have you carried out to generate new leads?</li>
+                </ol>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Summary Cards */}

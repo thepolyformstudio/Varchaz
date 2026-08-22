@@ -25,8 +25,8 @@
    - **Type A (Consolidated Team Report)**:
      - **Email Body**: App-styled HTML table for **Consolidated MTD Plan vs. Achievement**.
      - **Attachment**: `.xlsx` workbook with 2 sheets (Sheet 1: Consolidated MTD, Sheet 2: Consolidated YTD).
-     - **Recipients**: TO Supervisor + All Team Members (using Supervisor-configured `automailerEmail`s).
+     - **Recipients**: TO Supervisor + All Team Members (using Supervisor-configured `automailerEmail`s; restricted to `user` and `supervisor` roles only).
    - **Type B (Individual User Report)**:
      - **Email Body**: App-styled HTML table for **User MTD Plan vs. Achievement**.
      - **Attachment**: `.xlsx` workbook with 2 sheets (Sheet 1: User MTD, Sheet 2: User YTD).
-     - **Recipients**: TO Particular User (`automailerEmail`), CC Supervisor (`automailerEmail`).
+     - **Recipients**: TO Particular User (`automailerEmail`), CC Supervisor (`automailerEmail`); restricted to `user` and `supervisor` roles only (Viewer & Admin IDs excluded).

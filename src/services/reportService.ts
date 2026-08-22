@@ -131,7 +131,8 @@ function sortProductsByCategoryPriority(productsList: any[]): any[] {
   const products = sortProductsByCategoryPriority(rawProducts);
 
   const usersSnap = await getDocs(query(collection(db, 'users'), where('status', '==', 'approved')));
-  const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const rawUsers = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const users = rawUsers.filter((u: any) => u.role === 'user' || u.role === 'supervisor');
 
   const monthlyPlansSnap = await getDocs(collection(db, 'monthlyPlans'));
   const allMonthlyPlans = monthlyPlansSnap.docs.map(d => ({ id: d.id, ...d.data() }));

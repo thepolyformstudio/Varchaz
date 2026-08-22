@@ -234,12 +234,14 @@ async function runDailyReportCron() {
   const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
 
   let totalEmailsDispatched = 0;
-  const supervisors = allUsers.filter(u => u.role === 'supervisor' || u.role === 'admin');
+  const supervisors = allUsers.filter(u => u.role === 'supervisor');
 
   for (const supervisor of supervisors) {
     const supId = supervisor.id;
     const supAutomailerEmail = supervisor.automailerEmail || supervisor.email;
-    const teamMembers = allUsers.filter(u => u.supervisorId === supId || u.id === supId);
+    const teamMembers = allUsers.filter(u => 
+      (u.role === 'user' || u.role === 'supervisor') && (u.supervisorId === supId || u.id === supId)
+    );
 
     if (teamMembers.length === 0) continue;
 
@@ -523,6 +525,189 @@ async function runDailyReportCron() {
   console.log(`Varchaz Daily Auto Mailer Cron completed. Dispatched ${totalEmailsDispatched} email payload(s).`);
 }
 
+async function runMorningUserNudgeCron() {
+  console.log('Starting Varchaz Morning User Nudge Cron execution...');
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(now.getTime() + istOffset);
+  const todayStr = istDate.toISOString().split('T')[0];
+  const currentMonthStr = todayStr.substring(0, 7);
+
+  const usersSnap = await db.collection('users').where('status', '==', 'approved').get();
+  const teamUsers = usersSnap.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter(u => u.role === 'user');
+
+  if (teamUsers.length === 0) {
+    console.log('No approved users with role "user" found.');
+    return;
+  }
+
+  const productsSnap = await db.collection('products').get();
+  const rawProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const products = sortProductsByCategoryPriority(rawProducts);
+
+  const monthlyPlansSnap = await db.collection('monthlyPlans').get();
+  const allMonthlyPlans = monthlyPlansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  const dailySalesSnap = await db.collection('dailySales').get();
+  const allDailySales = dailySalesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  const mtdPlansByUser = {};
+  allMonthlyPlans.forEach((mp) => {
+    if (mp.month === currentMonthStr && mp.userId) {
+      if (!mtdPlansByUser[mp.userId]) mtdPlansByUser[mp.userId] = {};
+      Object.entries(mp.products || {}).forEach(([pId, val]) => {
+        mtdPlansByUser[mp.userId][pId] = (mtdPlansByUser[mp.userId][pId] || 0) + Number(val || 0);
+      });
+    }
+  });
+
+  const mtdSalesByUser = {};
+  allDailySales.forEach((ds) => {
+    if (ds.date && ds.date.substring(0, 7) === currentMonthStr && ds.date <= todayStr && ds.userId) {
+      if (!mtdSalesByUser[ds.userId]) mtdSalesByUser[ds.userId] = {};
+      Object.entries(ds.products || {}).forEach(([pId, val]) => {
+        mtdSalesByUser[ds.userId][pId] = (mtdSalesByUser[ds.userId][pId] || 0) + Number(val || 0);
+      });
+    }
+  });
+
+  const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
+  const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
+
+  let count = 0;
+
+  for (const user of teamUsers) {
+    const userTargetEmail = user.automailerEmail || user.email;
+    if (!userTargetEmail) continue;
+
+    let userProducts = products;
+    if (user.supervisorId) {
+      const supProdDoc = await db.collection('supervisorProducts').doc(user.supervisorId).get();
+      if (supProdDoc.exists) {
+        const activeProductIds = supProdDoc.data()?.activeProductIds || [];
+        if (activeProductIds.length > 0) {
+          userProducts = products.filter(p => activeProductIds.includes(p.productId || p.id));
+        }
+      }
+    }
+
+    const goodProducts = [];
+    const inactiveProducts = [];
+
+    userProducts.forEach((prod) => {
+      const pId = prod.productId || prod.id;
+      const plan = mtdPlansByUser[user.id]?.[pId] || 0;
+      const ach = mtdSalesByUser[user.id]?.[pId] || 0;
+      const pct = plan > 0 ? (ach / plan) * 100 : (ach > 0 ? 100 : 0);
+
+      if (ach > 0) {
+        goodProducts.push({
+          name: prod.name || prod.productName || 'Product',
+          plan: formatNumberVal(plan),
+          ach: formatNumberVal(ach),
+          pct: Math.round(pct * 10) / 10
+        });
+      } else {
+        inactiveProducts.push({
+          name: prod.name || prod.productName || 'Product',
+          plan: formatNumberVal(plan),
+          ach: formatNumberVal(ach)
+        });
+      }
+    });
+
+    const userName = user.displayName || 'Team Member';
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; padding: 20px; color: #1e293b; background-color: #f8fafc; border-radius: 8px;">
+        <div style="background-color: #2563eb; color: #ffffff; padding: 20px; border-radius: 6px; text-align: center;">
+          <h2 style="margin: 0; font-size: 22px;">Varchaz — Daily Morning Performance Nudge</h2>
+          <p style="margin: 6px 0 0 0; font-size: 14px; opacity: 0.9;">Hello ${userName} | Date: ${todayStr}</p>
+        </div>
+
+        <div style="padding: 20px 0;">
+          ${goodProducts.length > 0 ? `
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+              <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 16px;">🟢 Doing Great! Active Products & Progress</h3>
+              <p style="margin: 0 0 12px 0; font-size: 13px; color: #15803d;">
+                Great momentum on these products! You are nearing your monthly plan targets. Keep pushing to complete 100%:
+              </p>
+              <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #166534;">
+                ${goodProducts.map(p => `
+                  <li style="margin-bottom: 6px;">
+                    <strong>${p.name}</strong>: Achieved <strong>${p.ach}</strong> / Plan <strong>${p.plan}</strong> (${p.pct}% target reached)
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+          ` : ''}
+
+          ${inactiveProducts.length > 0 ? `
+            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+              <h3 style="margin: 0 0 8px 0; color: #9f1239; font-size: 16px;">⚠️ Action Required: Inactive Products MTD (${inactiveProducts.length})</h3>
+              <p style="margin: 0 0 12px 0; font-size: 13px; color: #be123c;">
+                You currently have 0 sales reported for the following products this month:
+              </p>
+              <ul style="margin: 0 0 16px 0; padding-left: 20px; font-size: 13px; color: #9f1239;">
+                ${inactiveProducts.map(p => `
+                  <li style="margin-bottom: 6px;">
+                    <strong>${p.name}</strong> (Target Plan: ${p.plan})
+                  </li>
+                `).join('')}
+              </ul>
+
+              <div style="background: #ffffff; border: 1px dashed #fda4af; border-radius: 6px; padding: 14px;">
+                <h4 style="margin: 0 0 8px 0; color: #881337; font-size: 14px;">📋 Supervisor Review & Reflection Questions</h4>
+                <p style="margin: 0 0 8px 0; font-size: 12px; color: #475569;">
+                  Please review the following check-in questions to prepare your active plan:
+                </p>
+                <ol style="margin: 0; padding-left: 20px; font-size: 13px; color: #1e293b; line-height: 1.6;">
+                  <li><strong>What actions are you taking</strong> to get active on these products?</li>
+                  <li><strong>What support do you require</strong> from your supervisor or team?</li>
+                  <li><strong>How many active leads</strong> do you currently have for each of these products?</li>
+                  <li><strong>If leads are none or low:</strong> How many customer engagements have you carried out to generate new leads?</li>
+                </ol>
+              </div>
+            </div>
+          ` : ''}
+
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
+            <p style="font-size: 13px; line-height: 1.5; color: #475569; margin: 0;">
+              💡 <strong>Daily Tip:</strong> Log in to Varchaz to update your daily sales report and track your progress against monthly targets.
+            </p>
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; text-align: center; color: #94a3b8; font-size: 11px;">
+          <p style="margin: 0;">Automated daily morning encouragement sent by Varchaz Performance System via VarchazReport@gmail.com.</p>
+        </div>
+      </div>
+    `;
+
+    try {
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify({
+          to: userTargetEmail,
+          subject: `[Varchaz] Morning Performance Check-in & Action Plan (${todayStr})`,
+          html: htmlBody,
+          text: `Varchaz Morning Performance Check-in for ${userName} (${todayStr}). Please log in to review your active products and lead generation.`
+        })
+      });
+      const resData = await res.json();
+      console.log(`Morning nudge sent to ${userTargetEmail}:`, resData.message || 'Success');
+      count++;
+    } catch (err) {
+      console.error(`Error sending morning nudge to ${userTargetEmail}:`, err.message);
+    }
+  }
+
+  console.log(`Morning User Nudge Cron completed. Dispatched ${count} email(s).`);
+}
+
 if (require.main === module) {
   runDailyReportCron()
     .then(() => process.exit(0))
@@ -532,4 +717,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { runDailyReportCron };
+module.exports = { runDailyReportCron, runMorningUserNudgeCron };

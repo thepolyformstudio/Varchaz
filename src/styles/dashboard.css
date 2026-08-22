@@ -347,3 +347,130 @@
 .user-perf-card-header:hover {
   background: var(--v-bg-hover);
 }
+
+/* ─── User Performance Insights Banners ──────────────────── */
+.user-insights-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-4);
+  margin-bottom: var(--v-space-6);
+}
+
+.user-insight-banner {
+  border-radius: var(--v-radius-lg);
+  padding: var(--v-space-5);
+  border: 1px solid transparent;
+  box-shadow: var(--v-shadow-sm);
+}
+
+.user-insight-banner.good-performance {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+[data-theme='dark'] .user-insight-banner.good-performance {
+  background: rgba(22, 101, 52, 0.2);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #86efac;
+}
+
+.user-insight-banner.inactive-performance {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #9f1239;
+}
+
+[data-theme='dark'] .user-insight-banner.inactive-performance {
+  background: rgba(159, 18, 57, 0.2);
+  border-color: rgba(244, 63, 94, 0.3);
+  color: #fda4af;
+}
+
+.insight-banner-header {
+  display: flex;
+  align-items: center;
+  gap: var(--v-space-3);
+  font-size: var(--v-text-base);
+  font-weight: 700;
+  margin-bottom: var(--v-space-2);
+}
+
+.insight-banner-desc {
+  font-size: var(--v-text-sm);
+  opacity: 0.9;
+  line-height: 1.5;
+  margin-bottom: var(--v-space-3);
+}
+
+.insight-product-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--v-space-2);
+  margin-bottom: var(--v-space-3);
+}
+
+.insight-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: var(--v-text-xs);
+  font-weight: 600;
+}
+
+.user-insight-banner.good-performance .insight-chip {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+[data-theme='dark'] .user-insight-banner.good-performance .insight-chip {
+  background: rgba(34, 197, 94, 0.25);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.user-insight-banner.inactive-performance .insight-chip {
+  background: #ffe4e6;
+  color: #be123c;
+  border: 1px solid #fda4af;
+}
+
+[data-theme='dark'] .user-insight-banner.inactive-performance .insight-chip {
+  background: rgba(225, 29, 72, 0.25);
+  color: #fda4af;
+  border-color: rgba(225, 29, 72, 0.4);
+}
+
+.supervisor-questions-box {
+  margin-top: var(--v-space-3);
+  padding: var(--v-space-4);
+  border-radius: var(--v-radius-md);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px dashed rgba(159, 18, 57, 0.3);
+}
+
+[data-theme='dark'] .supervisor-questions-box {
+  background: rgba(0, 0, 0, 0.25);
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+.supervisor-questions-title {
+  font-size: var(--v-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--v-space-2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.supervisor-questions-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: var(--v-text-xs);
+  line-height: 1.6;
+}
