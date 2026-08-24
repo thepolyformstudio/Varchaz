@@ -73,6 +73,22 @@ function calcPctVal(plan, ach) {
   return Math.round((ach / plan) * 10000) / 100;
 }
 
+/** Check if date is a non-working day in IST (All Sundays, 2nd & 4th Saturdays of the month) */
+function isNonWorkingDay(dateObj) {
+  const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 6 = Saturday
+  if (dayOfWeek === 0) {
+    return { isExcluded: true, reason: 'Sunday' };
+  }
+  if (dayOfWeek === 6) {
+    const dateOfMonth = dateObj.getDate();
+    const nthSaturday = Math.ceil(dateOfMonth / 7);
+    if (nthSaturday === 2 || nthSaturday === 4) {
+      return { isExcluded: true, reason: `${nthSaturday === 2 ? '2nd' : '4th'} Saturday` };
+    }
+  }
+  return { isExcluded: false, reason: null };
+}
+
 /** Render a clean, app-styled HTML table for MTD Plan vs Achievement */
 function renderMtdHtmlTable(title, rows, totalPlan, totalAch) {
   const totalPct = calcPctVal(totalPlan, totalAch);
@@ -147,6 +163,12 @@ async function runDailyReportCron() {
   const istDate = new Date(now.getTime() + istOffset);
   const todayStr = istDate.toISOString().split('T')[0]; // YYYY-MM-DD
   const currentMonthStr = todayStr.substring(0, 7); // YYYY-MM
+
+  const holidayCheck = isNonWorkingDay(istDate);
+  if (holidayCheck.isExcluded && !process.env.FORCE_RUN) {
+    console.log(`Skipping Evening Daily Report dispatch today (${todayStr}): Non-working day (${holidayCheck.reason}).`);
+    return;
+  }
 
   console.log(`Executing Varchaz Daily Auto Mailer Cron for date: ${todayStr} (IST)...`);
 
@@ -526,17 +548,26 @@ async function runDailyReportCron() {
 }
 
 async function runMorningUserNudgeCron() {
-  console.log('Starting Varchaz Morning User Nudge Cron execution...');
+  initializeFirebase();
+  const db = admin.firestore();
+
   const now = new Date();
   const istOffset = 5.5 * 60 * 60 * 1000;
   const istDate = new Date(now.getTime() + istOffset);
   const todayStr = istDate.toISOString().split('T')[0];
   const currentMonthStr = todayStr.substring(0, 7);
 
+  const holidayCheck = isNonWorkingDay(istDate);
+  if (holidayCheck.isExcluded && !process.env.FORCE_RUN) {
+    console.log(`Skipping Morning User Nudge dispatch today (${todayStr}): Non-working day (${holidayCheck.reason}).`);
+    return;
+  }
+
+  console.log(`Starting Varchaz Morning User Nudge Cron execution for date: ${todayStr} (IST)...`);
+
   const usersSnap = await db.collection('users').where('status', '==', 'approved').get();
-  const teamUsers = usersSnap.docs
-    .map(doc => ({ id: doc.id, ...doc.data() }))
-    .filter(u => u.role === 'user');
+  const allUsers = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const teamUsers = allUsers.filter(u => u.role === 'user');
 
   if (teamUsers.length === 0) {
     console.log('No approved users with role "user" found.');
@@ -581,6 +612,14 @@ async function runMorningUserNudgeCron() {
   for (const user of teamUsers) {
     const userTargetEmail = user.automailerEmail || user.email;
     if (!userTargetEmail) continue;
+
+    let supAutomailerEmail = null;
+    if (user.supervisorId) {
+      const supervisor = allUsers.find(u => u.id === user.supervisorId);
+      if (supervisor) {
+        supAutomailerEmail = supervisor.automailerEmail || supervisor.email || null;
+      }
+    }
 
     let userProducts = products;
     if (user.supervisorId) {
@@ -687,18 +726,24 @@ async function runMorningUserNudgeCron() {
     `;
 
     try {
+      const payload = {
+        to: userTargetEmail,
+        subject: `[Varchaz] Morning Performance Check-in & Action Plan (${todayStr})`,
+        html: htmlBody,
+        text: `Varchaz Morning Performance Check-in for ${userName} (${todayStr}). Please log in to review your active products and lead generation.`
+      };
+
+      if (supAutomailerEmail) {
+        payload.cc = supAutomailerEmail;
+      }
+
       const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-        body: JSON.stringify({
-          to: userTargetEmail,
-          subject: `[Varchaz] Morning Performance Check-in & Action Plan (${todayStr})`,
-          html: htmlBody,
-          text: `Varchaz Morning Performance Check-in for ${userName} (${todayStr}). Please log in to review your active products and lead generation.`
-        })
+        body: JSON.stringify(payload)
       });
       const resData = await res.json();
-      console.log(`Morning nudge sent to ${userTargetEmail}:`, resData.message || 'Success');
+      console.log(`Morning nudge sent to ${userTargetEmail}${supAutomailerEmail ? ` (CC: ${supAutomailerEmail})` : ''}:`, resData.message || 'Success');
       count++;
     } catch (err) {
       console.error(`Error sending morning nudge to ${userTargetEmail}:`, err.message);
@@ -709,10 +754,12 @@ async function runMorningUserNudgeCron() {
 }
 
 if (require.main === module) {
-  runDailyReportCron()
+  const isMorning = process.argv.includes('--morning');
+  const runner = isMorning ? runMorningUserNudgeCron : runDailyReportCron;
+  runner()
     .then(() => process.exit(0))
     .catch((err) => {
-      console.error('Daily Report Cron Error:', err);
+      console.error('Cron Execution Error:', err);
       process.exit(1);
     });
 }

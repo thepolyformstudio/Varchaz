@@ -11,9 +11,14 @@
    - **`Varchaz Reports <varchazreport@gmail.com>`**
    - Configured via Gmail SMTP (`smtp.gmail.com:587`) using App Password.
 
-2. **Schedule & Timing**:
-   - Automated Daily Trigger: Every day at **8:00 PM IST (20:00 Asia/Kolkata)** via Pub/Sub Cloud Function `scheduledDailyReport`.
-   - On-Demand Manual Trigger: Admin/Supervisor trigger via `sendDailyReportNow`.
+2. **Schedule, Timing & Non-Working Day Rules**:
+   - **Evening Daily Report**: Every day at **8:00 PM IST (20:00 Asia/Kolkata)** via Pub/Sub Cloud Function `scheduledDailyReport` and GitHub Actions `.github/workflows/daily-report.yml`.
+   - **Morning Performance Nudge**: Every day at **8:00 AM IST (08:00 Asia/Kolkata)** via Pub/Sub Cloud Function `scheduledMorningUserNudge` and GitHub Actions `.github/workflows/morning-nudge.yml`.
+   - **Non-Working Day Exclusions**: Both morning and evening mailers automatically skip execution on:
+     1. All **Sundays**.
+     2. **2nd Saturday** of every month.
+     3. **4th Saturday** of every month.
+   - On-Demand Manual Trigger: Admin/Supervisor trigger via `sendDailyReportNow` or `sendMorningUserNudgeNow`.
 
 3. **Supervisor Automailer Target Email Management**:
    - **Field**: `automailerEmail?: string` on `users/{userId}` Firestore document.
@@ -21,7 +26,7 @@
    - **Permissions**: Visible & editable exclusively by Supervisors and Admins.
    - **Security Rules**: `firestore.rules` updated to include `automailerEmail` in `onlyUpdatedFields`.
 
-4. **Dual Auto Mailer Email Formats**:
+4. **Auto Mailer Email Formats**:
    - **Type A (Consolidated Team Report)**:
      - **Email Body**: App-styled HTML table for **Consolidated MTD Plan vs. Achievement**.
      - **Attachment**: `.xlsx` workbook with 2 sheets (Sheet 1: Consolidated MTD, Sheet 2: Consolidated YTD).
@@ -30,3 +35,7 @@
      - **Email Body**: App-styled HTML table for **User MTD Plan vs. Achievement**.
      - **Attachment**: `.xlsx` workbook with 2 sheets (Sheet 1: User MTD, Sheet 2: User YTD).
      - **Recipients**: TO Particular User (`automailerEmail`), CC Supervisor (`automailerEmail`); restricted to `user` and `supervisor` roles only (Viewer & Admin IDs excluded).
+   - **Type C (Morning User Performance Nudge)**:
+     - **Email Body**: Formatted performance nudge with active progress chips, zero-sale product alert chips, and supervisor 4-point reflection questions.
+     - **Recipients**: TO Particular User (`role === 'user'`, using `automailerEmail`), **CC Supervisor** (`supervisor.automailerEmail`).
+

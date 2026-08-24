@@ -1,14 +1,14 @@
-name: Varchaz Daily Auto Mailer Cron
+name: Varchaz Daily Morning Nudge Cron
 
 on:
   schedule:
-    # 14:30 UTC = 20:00 (8:00 PM) IST
-    - cron: '30 14 * * *'
+    # 02:30 UTC = 08:00 (8:00 AM) IST
+    - cron: '30 2 * * *'
   workflow_dispatch:
 
 jobs:
-  send-daily-report:
-    name: Generate and Dispatch Daily Performance Emails
+  send-morning-nudge:
+    name: Generate and Dispatch Morning Performance Nudges
     runs-on: ubuntu-latest
 
     steps:
@@ -24,9 +24,9 @@ jobs:
       - name: Install Project Dependencies
         run: npm ci || npm install
 
-      - name: Execute Daily Performance Auto Mailer
+      - name: Execute Morning User Performance Nudge Auto Mailer
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           EMAIL_API_URL: 'https://varchaz-email-api-sigma.vercel.app/send'
           EMAIL_API_KEY: 'your_super_secret_api_key_here'
-        run: node scripts/sendDailyReportCron.cjs --evening
+        run: node scripts/sendDailyReportCron.cjs --morning

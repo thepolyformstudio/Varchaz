@@ -690,6 +690,22 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
   return { success: true, count: totalEmailsDispatched, date: todayStr };
 }
 
+/** Check if date is a non-working day in IST (All Sundays, 2nd & 4th Saturdays of the month) */
+function isNonWorkingDay(dateObj: Date): { isExcluded: boolean; reason: string | null } {
+  const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 6 = Saturday
+  if (dayOfWeek === 0) {
+    return { isExcluded: true, reason: 'Sunday' };
+  }
+  if (dayOfWeek === 6) {
+    const dateOfMonth = dateObj.getDate();
+    const nthSaturday = Math.ceil(dateOfMonth / 7);
+    if (nthSaturday === 2 || nthSaturday === 4) {
+      return { isExcluded: true, reason: `${nthSaturday === 2 ? '2nd' : '4th'} Saturday` };
+    }
+  }
+  return { isExcluded: false, reason: null };
+}
+
 // ──────────────────────────────────────────────────
 // 7. Scheduled Daily Cloud Function (8:00 PM IST / 20:00)
 // ──────────────────────────────────────────────────
@@ -697,6 +713,15 @@ export const scheduledDailyReport = functions.pubsub
   .schedule('0 20 * * *')
   .timeZone('Asia/Kolkata')
   .onRun(async (context) => {
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(now.getTime() + istOffset);
+    const holidayCheck = isNonWorkingDay(istDate);
+    if (holidayCheck.isExcluded) {
+      console.log(`Skipping scheduled daily report: Non-working day (${holidayCheck.reason}).`);
+      return null;
+    }
+
     const settingsDoc = await db.collection('settings').doc('dailyReportConfig').get();
     const isEnabled = settingsDoc.exists ? settingsDoc.data()?.isEnabled !== false : true;
     if (!isEnabled) {
@@ -794,6 +819,15 @@ async function generateAndSendMorningUserNudges(overrideRecipient?: string) {
   for (const user of teamUsers) {
     const userTargetEmail = overrideRecipient || user.automailerEmail || user.email;
     if (!userTargetEmail) continue;
+
+    let supervisorCcEmail: string | null = null;
+    if (user.supervisorId && !overrideRecipient) {
+      const supUserDoc = await db.collection('users').doc(user.supervisorId).get();
+      if (supUserDoc.exists) {
+        const supData = supUserDoc.data();
+        supervisorCcEmail = supData?.automailerEmail || supData?.email || null;
+      }
+    }
 
     // Filter supervisor active products if user has supervisorId
     let userProducts = products;
@@ -901,15 +935,20 @@ async function generateAndSendMorningUserNudges(overrideRecipient?: string) {
       </div>
     `;
 
+    const payload: any = {
+      to: userTargetEmail,
+      subject: `[Varchaz] Morning Performance Check-in & Action Plan (${todayStr})`,
+      html: htmlBody,
+      text: `Varchaz Morning Performance Check-in for ${userName} (${todayStr}). Please log in to review your active products and lead generation.`
+    };
+    if (supervisorCcEmail) {
+      payload.cc = supervisorCcEmail;
+    }
+
     await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-      body: JSON.stringify({
-        to: userTargetEmail,
-        subject: `[Varchaz] Morning Performance Check-in & Action Plan (${todayStr})`,
-        html: htmlBody,
-        text: `Varchaz Morning Performance Check-in for ${userName} (${todayStr}). Please log in to review your active products and lead generation.`
-      })
+      body: JSON.stringify(payload)
     });
 
     emailsDispatched++;
@@ -923,6 +962,15 @@ export const scheduledMorningUserNudge = functions.pubsub
   .schedule('0 8 * * *')
   .timeZone('Asia/Kolkata')
   .onRun(async (context) => {
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(now.getTime() + istOffset);
+    const holidayCheck = isNonWorkingDay(istDate);
+    if (holidayCheck.isExcluded) {
+      console.log(`Skipping scheduled morning user nudge: Non-working day (${holidayCheck.reason}).`);
+      return null;
+    }
+
     const settingsDoc = await db.collection('settings').doc('dailyReportConfig').get();
     const isEnabled = settingsDoc.exists ? settingsDoc.data()?.isEnabled !== false : true;
     if (!isEnabled) {
