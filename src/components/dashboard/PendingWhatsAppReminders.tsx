@@ -92,84 +92,89 @@ export function PendingWhatsAppReminders() {
             </div>
           </div>
 
-          <div className="table-responsive">
-            <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-                  <th style={{ padding: '10px 12px' }}>Sales Rep Name</th>
-                  {!isSupervisor && <th style={{ padding: '10px 12px' }}>Supervisor</th>}
-                  {!isSupervisor && <th style={{ padding: '10px 12px' }}>WhatsApp Number</th>}
-                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingList.map(item => {
-                  const u = item.user;
-                  const waUrl = generateWhatsAppReminderUrl(phoneEditMap[u.uid] || u.phone, u.displayName);
-                  const isSaving = savingUser === u.uid;
+          <div className="data-table-wrapper" style={{ margin: 0 }}>
+            <div className="data-table-scroll">
+              <table className="data-table" style={{ fontSize: '13px' }}>
+                <thead>
+                  <tr>
+                    <th className="data-table-sticky-col" style={{ minWidth: 160 }}>Sales Rep Name</th>
+                    {!isSupervisor && <th style={{ minWidth: 140 }}>Supervisor</th>}
+                    {!isSupervisor && <th style={{ minWidth: 200 }}>WhatsApp Number</th>}
+                    <th className="text-right" style={{ minWidth: 180 }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingList.map(item => {
+                    const u = item.user;
+                    const waUrl = generateWhatsAppReminderUrl(phoneEditMap[u.uid] || u.phone, u.displayName);
+                    const isSaving = savingUser === u.uid;
 
-                  return (
-                    <tr key={u.uid} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '10px 12px', fontWeight: 600, color: '#0f172a' }}>
-                        {u.displayName}
-                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>{u.email}</div>
-                      </td>
-
-                      {!isSupervisor && (
-                        <td style={{ padding: '10px 12px', color: '#475569' }}>
-                          {item.supervisorName || 'Unassigned'}
-                        </td>
-                      )}
-
-                      {!isSupervisor && (
-                        <td style={{ padding: '10px 12px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Phone size={14} color="#64748b" />
-                            <input
-                              type="text"
-                              className="input"
-                              style={{ padding: '4px 8px', fontSize: '12px', width: '140px' }}
-                              placeholder="e.g. 9876543210"
-                              value={phoneEditMap[u.uid] ?? ''}
-                              onChange={(e) => setPhoneEditMap({ ...phoneEditMap, [u.uid]: e.target.value })}
-                            />
-                            <button
-                              className="btn btn-ghost btn-xs"
-                              onClick={() => handleSavePhone(u.uid)}
-                              disabled={isSaving}
-                              title="Save Phone Number"
-                            >
-                              <Save size={14} />
-                            </button>
+                    return (
+                      <tr key={u.uid}>
+                        <td className="data-table-sticky-col" style={{ fontWeight: 600, color: 'var(--v-text-primary)' }}>
+                          {u.displayName}
+                          <div style={{ fontSize: '11px', color: 'var(--v-text-secondary)', fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>
+                            {u.email}
                           </div>
                         </td>
-                      )}
 
-                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                        <a
-                          href={waUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn btn-success btn-sm"
-                          style={{
-                            background: '#25D366',
-                            borderColor: '#25D366',
-                            color: '#ffffff',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            textDecoration: 'none',
-                            fontWeight: 600
-                          }}
-                        >
-                          <Send size={13} /> Send WhatsApp Reminder
-                        </a>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        {!isSupervisor && (
+                          <td style={{ color: 'var(--v-text-secondary)' }}>
+                            {item.supervisorName || 'Unassigned'}
+                          </td>
+                        )}
+
+                        {!isSupervisor && (
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Phone size={14} color="#64748b" />
+                              <input
+                                type="text"
+                                className="input-field"
+                                style={{ padding: '4px 8px', fontSize: '12px', width: '130px' }}
+                                placeholder="e.g. 9876543210"
+                                value={phoneEditMap[u.uid] ?? ''}
+                                onChange={(e) => setPhoneEditMap({ ...phoneEditMap, [u.uid]: e.target.value })}
+                              />
+                              <button
+                                className="table-action-btn"
+                                onClick={() => handleSavePhone(u.uid)}
+                                disabled={isSaving}
+                                title="Save Phone Number"
+                              >
+                                <Save size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+
+                        <td className="text-right">
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-sm"
+                            style={{
+                              background: '#25D366',
+                              borderColor: '#25D366',
+                              color: '#ffffff',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              textDecoration: 'none',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <Send size={13} /> Send WhatsApp Reminder
+                          </a>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}

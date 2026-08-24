@@ -39,32 +39,32 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--v-blue-600), var(--v-blue-700));
+  background: var(--v-brand-gradient);
   color: white;
-  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, var(--v-blue-500), var(--v-blue-600));
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
-  transform: translateY(-1px);
+  background: var(--v-brand-gradient-hover);
+  box-shadow: var(--v-glow-indigo);
+  transform: translateY(-2px);
 }
 
 .btn-primary:active {
   transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.3);
 }
 
 .btn-secondary {
   background: var(--v-bg-secondary);
   color: var(--v-text-primary);
   border: 1px solid var(--v-border-primary);
-  box-shadow: var(--v-shadow-sm);
 }
 
 .btn-secondary:hover {
   background: var(--v-bg-hover);
   border-color: var(--v-border-secondary);
+  transform: translateY(-1px);
 }
 
 .btn-ghost {
@@ -376,13 +376,13 @@
 }
 
 .modal-content {
-  background: var(--v-bg-secondary);
+  background: var(--v-bg-elevated);
   border: 1px solid var(--v-border-primary);
   border-radius: var(--v-radius-xl);
   box-shadow: var(--v-shadow-xl);
-  width: 100%;
+  width: 90%;
   max-width: 480px;
-  max-height: 90vh;
+  max-height: 85dvh;
   overflow-y: auto;
   animation: scaleIn var(--v-transition-spring);
 }

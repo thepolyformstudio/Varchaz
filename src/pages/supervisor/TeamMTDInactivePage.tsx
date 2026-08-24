@@ -291,7 +291,7 @@ export default function TeamMTDInactivePage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ minWidth: 200 }}>Category & Product</th>
+                  <th className="data-table-sticky-col" style={{ minWidth: 200 }}>Category & Product</th>
                   {data.users.map(u => (
                     <th key={u.uid} style={{ textAlign: 'center', minWidth: 80, verticalAlign: 'bottom' }}>
                       <div className="avatar avatar-sm" style={{ margin: '0 auto 8px', width: 28, height: 28, fontSize: 11 }}>
@@ -318,7 +318,7 @@ export default function TeamMTDInactivePage() {
                       {/* Product Rows */}
                       {catProducts.map(p => (
                         <tr key={p.productId}>
-                          <td style={{ paddingLeft: 'var(--v-space-6)', fontWeight: 500, color: 'var(--v-text-primary)' }}>
+                          <td className="data-table-sticky-col" style={{ paddingLeft: 'var(--v-space-6)', fontWeight: 500, color: 'var(--v-text-primary)' }}>
                             {p.name}
                           </td>
                           {data.users.map(u => {

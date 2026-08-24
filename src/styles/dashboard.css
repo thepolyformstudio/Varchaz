@@ -296,16 +296,23 @@
 
 .drill-down-item .user-info {
   flex: 1;
+  min-width: 0;
 }
 
 .drill-down-item .user-name {
   font-weight: 500;
   font-size: var(--v-text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .drill-down-item .user-meta {
   font-size: var(--v-text-xs);
   color: var(--v-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .drill-down-item .user-pct {

@@ -6,7 +6,7 @@
 
 /* ─── CSS Custom Properties (Design Tokens) ──────────────── */
 :root {
-  /* ── Brand Colors ── */
+  /* ── Brand Colors & Gradients ── */
   --v-blue-50: #eff6ff;
   --v-blue-100: #dbeafe;
   --v-blue-200: #bfdbfe;
@@ -18,6 +18,10 @@
   --v-blue-800: #1e40af;
   --v-blue-900: #1e3a8a;
   --v-blue-950: #172554;
+
+  --v-brand-gradient: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  --v-brand-gradient-hover: linear-gradient(135deg, #1d4ed8 0%, #4338ca 100%);
+  --v-hero-gradient: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e40af 100%);
 
   /* ── Semantic Colors ── */
   --v-success: #10b981;
@@ -46,15 +50,17 @@
 
   --v-border-primary: #e2e8f0;
   --v-border-secondary: #cbd5e1;
-  --v-border-focus: #3b82f6;
+  --v-border-focus: #4f46e5;
 
   --v-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --v-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
   --v-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
   --v-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
+  --v-glow-indigo: 0 10px 25px -5px rgba(79, 70, 229, 0.25);
+  --v-glow-sapphire: 0 10px 25px -5px rgba(37, 99, 235, 0.25);
 
-  --v-glass-bg: rgba(255, 255, 255, 0.7);
-  --v-glass-border: rgba(255, 255, 255, 0.3);
+  --v-glass-bg: rgba(255, 255, 255, 0.85);
+  --v-glass-border: rgba(226, 232, 240, 0.7);
 
   /* ── Sidebar ── */
   --v-sidebar-bg: #0f172a;

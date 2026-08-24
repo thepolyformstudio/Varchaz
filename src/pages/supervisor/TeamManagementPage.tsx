@@ -187,62 +187,64 @@ export default function TeamManagementPage() {
         <EmptyState icon={<Users size={32} />} title="No team members" text="Users who register and select you as their supervisor will appear here." />
       ) : (
         <div className="data-table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Login Email</th>
-                <th>Automailer Target Email</th>
-                <th>Status</th>
-                <th className="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(u => (
-                <tr key={u.uid}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-2)' }}>
-                      <div className="avatar avatar-sm">{getInitials(u.displayName)}</div>
-                      {u.displayName}
-                    </div>
-                  </td>
-                  <td style={{ color: 'var(--v-text-muted, #64748b)' }}>{u.email}</td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{
-                        fontSize: '13px',
-                        fontWeight: u.automailerEmail ? 600 : 400,
-                        color: u.automailerEmail ? '#2563eb' : 'var(--v-text-secondary, #475569)'
-                      }}>
-                        {u.automailerEmail || `${u.email} (default)`}
-                      </span>
-                      <button
-                        className="table-action-btn"
-                        style={{ padding: '2px 6px' }}
-                        onClick={() => { setEditingTarget(u); setAutomailerInput(u.automailerEmail || u.email); }}
-                        title="Edit Automailer Email (Supervisor Only)"
-                      >
-                        <Edit2 size={13} />
-                      </button>
-                    </div>
-                  </td>
-                  <td><span className={`badge ${getStatusBadgeClass(u.status)}`}>{formatStatus(u.status)}</span></td>
-                  <td className="text-center">
-                    <div className="table-actions" style={{ justifyContent: 'center' }}>
-                      <button className="table-action-btn" onClick={() => navigate(`/supervisor/user/${u.uid}`)} title="View performance">
-                        <Eye size={16} />
-                      </button>
-                      {u.status !== 'disabled' && (
-                        <button className="table-action-btn danger" onClick={() => setDeleteTarget(u)} title="Disable user">
-                          <UserMinus size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+          <div className="data-table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Login Email</th>
+                  <th>Automailer Target Email</th>
+                  <th>Status</th>
+                  <th className="text-center">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.uid}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-2)' }}>
+                        <div className="avatar avatar-sm">{getInitials(u.displayName)}</div>
+                        {u.displayName}
+                      </div>
+                    </td>
+                    <td style={{ color: 'var(--v-text-muted, #64748b)' }}>{u.email}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          fontSize: '13px',
+                          fontWeight: u.automailerEmail ? 600 : 400,
+                          color: u.automailerEmail ? '#2563eb' : 'var(--v-text-secondary, #475569)'
+                        }}>
+                          {u.automailerEmail || `${u.email} (default)`}
+                        </span>
+                        <button
+                          className="table-action-btn"
+                          style={{ padding: '2px 6px' }}
+                          onClick={() => { setEditingTarget(u); setAutomailerInput(u.automailerEmail || u.email); }}
+                          title="Edit Automailer Email (Supervisor Only)"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                    <td><span className={`badge ${getStatusBadgeClass(u.status)}`}>{formatStatus(u.status)}</span></td>
+                    <td className="text-center">
+                      <div className="table-actions" style={{ justifyContent: 'center' }}>
+                        <button className="table-action-btn" onClick={() => navigate(`/supervisor/user/${u.uid}`)} title="View performance">
+                          <Eye size={16} />
+                        </button>
+                        {u.status !== 'disabled' && (
+                          <button className="table-action-btn danger" onClick={() => setDeleteTarget(u)} title="Disable user">
+                            <UserMinus size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

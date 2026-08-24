@@ -14,6 +14,32 @@
 .data-table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* ─── Sticky Left Column for Matrix Tables ───────────────── */
+.data-table-sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--v-bg-secondary);
+  box-shadow: 2px 0 6px rgba(15, 23, 42, 0.08);
+}
+
+th.data-table-sticky-col {
+  z-index: 3;
+  background: var(--v-bg-tertiary);
+}
+
+/* ─── Category Header Left Indicator Bar ─────────────────── */
+.category-header-row td {
+  border-left: 4px solid var(--v-blue-600);
+  background: var(--v-blue-50);
+}
+
+[data-theme='dark'] .category-header-row td {
+  background: rgba(37, 99, 235, 0.15);
+  border-left-color: var(--v-blue-400);
 }
 
 .data-table {
@@ -140,14 +166,21 @@
 }
 
 .table-action-btn {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--v-radius-md);
   color: var(--v-text-tertiary);
   transition: all var(--v-transition-fast);
+}
+
+@media (max-width: 640px) {
+  .table-action-btn {
+    width: 40px;
+    height: 40px;
+  }
 }
 
 .table-action-btn:hover {
