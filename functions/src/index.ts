@@ -706,29 +706,60 @@ function isNonWorkingDay(dateObj: Date): { isExcluded: boolean; reason: string |
   return { isExcluded: false, reason: null };
 }
 
+/**
+ * Check if date is the last working day of the week in IST.
+ * - In 2nd and 4th weeks of the month (where Saturday is a non-working day), Friday is the last working day.
+ * - Otherwise (1st, 3rd, 5th weeks), Saturday is the last working day.
+ */
+function isLastWorkingDayOfWeek(dateObj: Date): { isLastWorkingDay: boolean; reason: string } {
+  const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 5 = Friday, 6 = Saturday
+  
+  if (dayOfWeek === 5) { // Friday
+    const tomorrow = new Date(dateObj.getTime() + (24 * 60 * 60 * 1000));
+    const nthSaturday = Math.ceil(tomorrow.getDate() / 7);
+    if (nthSaturday === 2 || nthSaturday === 4) {
+      return { isLastWorkingDay: true, reason: `Friday before ${nthSaturday === 2 ? '2nd' : '4th'} Saturday holiday` };
+    }
+    return { isLastWorkingDay: false, reason: 'Friday (Saturday is a working day this week)' };
+  }
+
+  if (dayOfWeek === 6) { // Saturday
+    const dateOfMonth = dateObj.getDate();
+    const nthSaturday = Math.ceil(dateOfMonth / 7);
+    if (nthSaturday === 2 || nthSaturday === 4) {
+      return { isLastWorkingDay: false, reason: `${nthSaturday === 2 ? '2nd' : '4th'} Saturday is a non-working day` };
+    }
+    return { isLastWorkingDay: true, reason: `Working Saturday (${nthSaturday === 1 ? '1st' : nthSaturday === 3 ? '3rd' : '5th'} Saturday)` };
+  }
+
+  return { isLastWorkingDay: false, reason: 'Midweek day' };
+}
+
 // ──────────────────────────────────────────────────
-// 7. Scheduled Daily Cloud Function (8:00 PM IST / 20:00)
+// 7. Scheduled Weekly MTD Cloud Function (9:00 PM IST / 21:00 Asia/Kolkata on Last Working Day of Week)
 // ──────────────────────────────────────────────────
 export const scheduledDailyReport = functions.pubsub
-  .schedule('0 20 * * *')
+  .schedule('0 21 * * 5,6')
   .timeZone('Asia/Kolkata')
   .onRun(async (context) => {
     const now = new Date();
     const istOffset = 5.5 * 60 * 60 * 1000;
     const istDate = new Date(now.getTime() + istOffset);
-    const holidayCheck = isNonWorkingDay(istDate);
-    if (holidayCheck.isExcluded) {
-      console.log(`Skipping scheduled daily report: Non-working day (${holidayCheck.reason}).`);
+
+    // Verify if today is the last working day of the week
+    const lastWorkingDayCheck = isLastWorkingDayOfWeek(istDate);
+    if (!lastWorkingDayCheck.isLastWorkingDay) {
+      console.log(`Skipping weekly MTD report: ${lastWorkingDayCheck.reason}.`);
       return null;
     }
 
     const settingsDoc = await db.collection('settings').doc('dailyReportConfig').get();
     const isEnabled = settingsDoc.exists ? settingsDoc.data()?.isEnabled !== false : true;
     if (!isEnabled) {
-      console.log('Daily report is currently disabled in settings. Skipping execution.');
+      console.log('Automailer is currently disabled in settings. Skipping execution.');
       return null;
     }
-    console.log('Starting automated daily performance report execution...');
+    console.log('Starting automated weekly MTD performance report execution...');
     return await generateAndSendDailyReport();
   });
 

@@ -201,8 +201,67 @@ export function isFutureDate(dateStr: string): boolean {
 
 /** Get time-based greeting */
 export function getGreeting(): string {
-  const hour = new Date().getHours();
+  const hour = getISTHour();
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 }
+
+/** Get current Date in Indian Standard Time (IST, UTC+5:30) */
+export function getISTDate(date?: Date): Date {
+  const target = date || new Date();
+  const utc = target.getTime() + (target.getTimezoneOffset() * 60000);
+  return new Date(utc + (3600000 * 5.5));
+}
+
+/** Get the current hour in IST (0 - 23) */
+export function getISTHour(date?: Date): number {
+  return getISTDate(date).getHours();
+}
+
+/** Check if date is a non-working day in IST (All Sundays, 2nd & 4th Saturdays of the month) */
+export function isNonWorkingDay(dateObj: Date): { isExcluded: boolean; reason: string | null } {
+  const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 6 = Saturday
+  if (dayOfWeek === 0) {
+    return { isExcluded: true, reason: 'Sunday' };
+  }
+  if (dayOfWeek === 6) {
+    const dateOfMonth = dateObj.getDate();
+    const nthSaturday = Math.ceil(dateOfMonth / 7);
+    if (nthSaturday === 2 || nthSaturday === 4) {
+      return { isExcluded: true, reason: `${nthSaturday === 2 ? '2nd' : '4th'} Saturday` };
+    }
+  }
+  return { isExcluded: false, reason: null };
+}
+
+/**
+ * Check if date is the last working day of the week in IST.
+ * - In 2nd and 4th weeks of the month (where Saturday is a non-working day), Friday is the last working day.
+ * - Otherwise (1st, 3rd, 5th weeks), Saturday is the last working day.
+ */
+export function isLastWorkingDayOfWeek(dateObj: Date): { isLastWorkingDay: boolean; reason: string } {
+  const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 5 = Friday, 6 = Saturday
+  
+  if (dayOfWeek === 5) { // Friday
+    // Check if tomorrow (Saturday) is a holiday (2nd or 4th Saturday)
+    const tomorrow = new Date(dateObj.getTime() + (24 * 60 * 60 * 1000));
+    const nthSaturday = Math.ceil(tomorrow.getDate() / 7);
+    if (nthSaturday === 2 || nthSaturday === 4) {
+      return { isLastWorkingDay: true, reason: `Friday before ${nthSaturday === 2 ? '2nd' : '4th'} Saturday holiday` };
+    }
+    return { isLastWorkingDay: false, reason: 'Friday (Saturday is a working day this week)' };
+  }
+
+  if (dayOfWeek === 6) { // Saturday
+    const dateOfMonth = dateObj.getDate();
+    const nthSaturday = Math.ceil(dateOfMonth / 7);
+    if (nthSaturday === 2 || nthSaturday === 4) {
+      return { isLastWorkingDay: false, reason: `${nthSaturday === 2 ? '2nd' : '4th'} Saturday is a non-working day` };
+    }
+    return { isLastWorkingDay: true, reason: `Working Saturday (${nthSaturday === 1 ? '1st' : nthSaturday === 3 ? '3rd' : '5th'} Saturday)` };
+  }
+
+  return { isLastWorkingDay: false, reason: 'Midweek day' };
+}
+

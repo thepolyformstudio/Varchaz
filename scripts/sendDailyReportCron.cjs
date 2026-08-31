@@ -89,6 +89,35 @@ function isNonWorkingDay(dateObj) {
   return { isExcluded: false, reason: null };
 }
 
+/**
+ * Check if date is the last working day of the week in IST.
+ * - In 2nd and 4th weeks of the month (where Saturday is a non-working day), Friday is the last working day.
+ * - Otherwise (1st, 3rd, 5th weeks), Saturday is the last working day.
+ */
+function isLastWorkingDayOfWeek(dateObj) {
+  const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 5 = Friday, 6 = Saturday
+  
+  if (dayOfWeek === 5) { // Friday
+    const tomorrow = new Date(dateObj.getTime() + (24 * 60 * 60 * 1000));
+    const nthSaturday = Math.ceil(tomorrow.getDate() / 7);
+    if (nthSaturday === 2 || nthSaturday === 4) {
+      return { isLastWorkingDay: true, reason: `Friday before ${nthSaturday === 2 ? '2nd' : '4th'} Saturday holiday` };
+    }
+    return { isLastWorkingDay: false, reason: 'Friday (Saturday is a working day this week)' };
+  }
+
+  if (dayOfWeek === 6) { // Saturday
+    const dateOfMonth = dateObj.getDate();
+    const nthSaturday = Math.ceil(dateOfMonth / 7);
+    if (nthSaturday === 2 || nthSaturday === 4) {
+      return { isLastWorkingDay: false, reason: `${nthSaturday === 2 ? '2nd' : '4th'} Saturday is a non-working day` };
+    }
+    return { isLastWorkingDay: true, reason: `Working Saturday (${nthSaturday === 1 ? '1st' : nthSaturday === 3 ? '3rd' : '5th'} Saturday)` };
+  }
+
+  return { isLastWorkingDay: false, reason: 'Midweek day' };
+}
+
 /** Render a clean, app-styled HTML table for MTD Plan vs Achievement */
 function renderMtdHtmlTable(title, rows, totalPlan, totalAch) {
   const totalPct = calcPctVal(totalPlan, totalAch);
@@ -164,13 +193,14 @@ async function runDailyReportCron() {
   const todayStr = istDate.toISOString().split('T')[0]; // YYYY-MM-DD
   const currentMonthStr = todayStr.substring(0, 7); // YYYY-MM
 
-  const holidayCheck = isNonWorkingDay(istDate);
-  if (holidayCheck.isExcluded && !process.env.FORCE_RUN) {
-    console.log(`Skipping Evening Daily Report dispatch today (${todayStr}): Non-working day (${holidayCheck.reason}).`);
+  const isForce = process.env.FORCE_RUN || process.argv.includes('--force');
+  const lastWorkingDayCheck = isLastWorkingDayOfWeek(istDate);
+  if (!lastWorkingDayCheck.isLastWorkingDay && !isForce) {
+    console.log(`Skipping Weekly MTD Report dispatch today (${todayStr}): Not the last working day of the week (${lastWorkingDayCheck.reason}).`);
     return;
   }
 
-  console.log(`Executing Varchaz Daily Auto Mailer Cron for date: ${todayStr} (IST)...`);
+  console.log(`Executing Varchaz Weekly MTD Plan vs. Ach Auto Mailer Cron for date: ${todayStr} (IST)...`);
 
   const currentYear = istDate.getFullYear();
   const currentMonthNum = istDate.getMonth() + 1; // 1-12

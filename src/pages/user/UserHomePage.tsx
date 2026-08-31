@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { SummaryCard, MissingReportAlert, PerformanceTable } from '../../components/dashboard';
 import { LoadingSpinner, PageHeader } from '../../components/shared';
-import { getToday, getCurrentMonth, getGreeting, getYTDMonths, displayMonth } from '../../utils/dateUtils';
+import { getToday, getCurrentMonth, getGreeting, getYTDMonths, displayMonth, getISTHour } from '../../utils/dateUtils';
 import { buildMTDPerformance, buildYTDPerformance, calcGrandTotal } from '../../utils/calculations';
 import { formatIndianNumber, formatPercent } from '../../utils/formatters';
 import { fetchActiveProducts, fetchSupervisorProducts } from '../../services/productService';
@@ -80,6 +80,13 @@ export default function UserHomePage() {
   const goodProducts = mtdData.filter(p => p.achievement > 0);
   const inactiveProducts = mtdData.filter(p => p.achievement === 0);
 
+  // Time-gated scheduling in IST:
+  // - 8:00 AM to 5:00 PM IST: Product activation banners reflect.
+  // - After 5:00 PM IST: Pending daily business report banner reflects (replacing product activation banners completely).
+  const istHour = getISTHour();
+  const isProductActivationWindow = istHour >= 8 && istHour < 17;
+  const isPendingReportWindow = istHour >= 17;
+
   return (
     <div className="dashboard-page" id="user-home">
       <PageHeader
@@ -87,12 +94,13 @@ export default function UserHomePage() {
         subtitle="Here's your performance snapshot"
       />
 
-      {!reported && (
+      {/* After 5:00 PM IST: Pending Business Update Banner */}
+      {isPendingReportWindow && !reported && (
         <MissingReportAlert date={getToday()} onAction={() => navigate('/report')} />
       )}
 
-      {/* Dynamic Product Performance Banners (Team Members / Users Only) */}
-      {appUser.role === 'user' && (goodProducts.length > 0 || inactiveProducts.length > 0) && (
+      {/* 8:00 AM to 5:00 PM IST: Dynamic Product Performance Banners (Team Members / Users Only) */}
+      {isProductActivationWindow && appUser.role === 'user' && (goodProducts.length > 0 || inactiveProducts.length > 0) && (
         <div className="user-insights-container">
           {/* Good Performance Banner */}
           {goodProducts.length > 0 && (

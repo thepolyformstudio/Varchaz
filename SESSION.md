@@ -12,9 +12,11 @@
    - Configured via Gmail SMTP (`smtp.gmail.com:587`) using App Password.
 
 2. **Schedule, Timing & Non-Working Day Rules**:
-   - **Evening Daily Report**: Every day at **8:00 PM IST (20:00 Asia/Kolkata)** via Pub/Sub Cloud Function `scheduledDailyReport` and GitHub Actions `.github/workflows/daily-report.yml`.
-   - **Morning Performance Nudge**: Every day at **8:00 AM IST (08:00 Asia/Kolkata)** via Pub/Sub Cloud Function `scheduledMorningUserNudge` and GitHub Actions `.github/workflows/morning-nudge.yml`.
-   - **Non-Working Day Exclusions**: Both morning and evening mailers automatically skip execution on:
+   - **Weekly MTD Plan vs. Ach Auto Mailer**: Sent on the **last working day of the week at 9:00 PM IST (21:00 Asia/Kolkata / 15:30 UTC)** via Pub/Sub Cloud Function `scheduledDailyReport` and GitHub Actions `.github/workflows/daily-report.yml`.
+     - 2nd & 4th weeks of the month: Dispatched on **Friday** (since 2nd & 4th Saturdays are non-working days).
+     - 1st, 3rd & 5th weeks of the month: Dispatched on **Saturday** (working Saturdays).
+   - **Morning Performance Nudge**: Every day at **8:00 AM IST (08:00 Asia/Kolkata / 02:30 UTC)** via Pub/Sub Cloud Function `scheduledMorningUserNudge` and GitHub Actions `.github/workflows/morning-nudge.yml`.
+   - **Non-Working Day Exclusions**: Morning nudge skips execution on:
      1. All **Sundays**.
      2. **2nd Saturday** of every month.
      3. **4th Saturday** of every month.
@@ -38,4 +40,9 @@
    - **Type C (Morning User Performance Nudge)**:
      - **Email Body**: Formatted performance nudge with active progress chips, zero-sale product alert chips, and supervisor 4-point reflection questions.
      - **Recipients**: TO Particular User (`role === 'user'`, using `automailerEmail`), **CC Supervisor** (`supervisor.automailerEmail`).
+
+5. **User Dashboard Scheduling (Time-Gated Display)**:
+   - **8:00 AM to 5:00 PM IST**: Displays Product Activation & Inactive Product check banners along with supervisor reflection prompts.
+   - **After 5:00 PM IST**: The "Business update for the day pending" banner completely replaces the product activation banners (if daily report has not yet been submitted).
+
 
