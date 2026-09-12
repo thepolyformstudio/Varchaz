@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import type { DailySales } from '../types';
+import { syncCommitmentWithSales } from './commitmentService';
 
 const SALES_COL = 'dailySales';
 
@@ -51,6 +52,13 @@ export async function saveDailySales(
       updatedAt: serverTimestamp()
     };
     await setDoc(doc(db, SALES_COL, id), sales);
+  }
+
+  // Automatically synchronize with morning commitment if one exists for today
+  try {
+    await syncCommitmentWithSales(userId, date, products);
+  } catch (err) {
+    console.warn('Error syncing daily commitment with sales:', err);
   }
 }
 

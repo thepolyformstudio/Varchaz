@@ -11,10 +11,11 @@ import {
   Home, FileText, Calendar, TrendingUp, BarChart3, AlertTriangle,
   Users, CheckSquare, Package, Settings, LogOut, Menu, X,
   Sun, Moon, ChevronLeft, ChevronRight, Eye, Shield, ClipboardList,
-  UserCheck, Layers, FileBarChart, Archive, BookOpen, Smartphone
+  UserCheck, Layers, FileBarChart, Archive, BookOpen, Smartphone, Target
 } from 'lucide-react';
 import { CountBadge } from '../shared';
 import { startDailyReportScheduler } from '../../services/notificationService';
+import type { AppUser } from '../../types';
 
 export function AppShell() {
   const { appUser, logout } = useAuth();
@@ -66,8 +67,8 @@ export function AppShell() {
 
   const role = appUser.role;
 
-  // Navigation items by role
-  const navItems = getNavItems(role);
+  // Navigation items by role & permissions
+  const navItems = getNavItems(appUser);
   const bottomNavItems = getBottomNavItems(role);
 
   const handleLogout = async () => {
@@ -188,6 +189,28 @@ export function AppShell() {
                 <Smartphone size={18} />
               </button>
             )}
+            {appUser.role === 'user' && (
+              <button
+                className="topbar-icon-btn"
+                onClick={() => navigate('/commitments')}
+                title="Daily & Weekly Commitments"
+                id="topbar-commitment-btn"
+                style={{ color: 'var(--v-primary)' }}
+              >
+                <Target size={18} />
+              </button>
+            )}
+            {appUser.role === 'supervisor' && (
+              <button
+                className="topbar-icon-btn"
+                onClick={() => navigate('/supervisor/commitments')}
+                title="Team Commitments"
+                id="topbar-supervisor-commitment-btn"
+                style={{ color: 'var(--v-primary)' }}
+              >
+                <Target size={18} />
+              </button>
+            )}
             <button
               className="topbar-icon-btn"
               onClick={toggleTheme}
@@ -284,15 +307,16 @@ interface NavSection {
   items: { label: string; path: string; icon: React.ReactNode }[];
 }
 
-function getNavItems(role: string): NavSection[] {
-  switch (role) {
-    case 'user':
-      return [
+function getNavItems(user: AppUser): NavSection[] {
+  switch (user.role) {
+    case 'user': {
+      const sections: NavSection[] = [
         {
           label: 'Dashboard',
           items: [
             { label: 'Home', path: '/', icon: <Home size={18} /> },
             { label: 'Daily Report', path: '/report', icon: <FileText size={18} /> },
+            { label: 'Commitments', path: '/commitments', icon: <Target size={18} /> },
             { label: 'Monthly Plan', path: '/plan', icon: <Calendar size={18} /> },
           ]
         },
@@ -305,14 +329,27 @@ function getNavItems(role: string): NavSection[] {
             { label: 'MTD Inactive', path: '/mtd-inactive', icon: <AlertTriangle size={18} /> },
             { label: 'YTD Inactive', path: '/ytd-inactive', icon: <AlertTriangle size={18} /> },
           ]
-        },
-        {
-          items: [
-            { label: 'Profile', path: '/profile', icon: <Settings size={18} /> },
-            { label: 'About Us', path: '/about', icon: <BookOpen size={18} /> },
-          ]
         }
       ];
+
+      if (user.assignedSupervisors && user.assignedSupervisors.length > 0) {
+        sections.push({
+          label: 'Viewer Access',
+          items: [
+            { label: 'Viewer Dashboard', path: '/viewer', icon: <Eye size={18} /> },
+          ]
+        });
+      }
+
+      sections.push({
+        items: [
+          { label: 'Profile', path: '/profile', icon: <Settings size={18} /> },
+          { label: 'About Us', path: '/about', icon: <BookOpen size={18} /> },
+        ]
+      });
+
+      return sections;
+    }
 
     case 'supervisor':
       return [
@@ -337,6 +374,7 @@ function getNavItems(role: string): NavSection[] {
           items: [
             { label: 'Approvals', path: '/supervisor/approvals', icon: <UserCheck size={18} /> },
             { label: 'Team', path: '/supervisor/team', icon: <Users size={18} /> },
+            { label: 'Commitments', path: '/supervisor/commitments', icon: <Target size={18} /> },
             { label: 'Products', path: '/supervisor/products', icon: <Package size={18} /> },
             { label: 'Plans', path: '/supervisor/plans', icon: <ClipboardList size={18} /> },
             { label: 'Reporting Tracker', path: '/supervisor/reporting-tracker', icon: <CheckSquare size={18} /> },

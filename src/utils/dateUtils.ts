@@ -265,3 +265,36 @@ export function isLastWorkingDayOfWeek(dateObj: Date): { isLastWorkingDay: boole
   return { isLastWorkingDay: false, reason: 'Midweek day' };
 }
 
+/** Get Monday through Saturday dates for a given week offset (0 = current week, -1 = last week, etc.) */
+export function getWeekDates(weekOffset = 0, refDate = new Date()): { weekStart: string; weekEnd: string; dates: string[]; workingDates: string[] } {
+  const d = new Date(refDate);
+  // Apply week offset
+  d.setDate(d.getDate() + (weekOffset * 7));
+  
+  const day = d.getDay(); // 0 = Sunday, 1 = Monday ... 6 = Saturday
+  const diffToMonday = (day === 0 ? -6 : 1) - day;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diffToMonday);
+
+  const dates: string[] = [];
+  const workingDates: string[] = [];
+
+  for (let i = 0; i < 6; i++) { // Monday to Saturday
+    const current = new Date(monday);
+    current.setDate(monday.getDate() + i);
+    const dateStr = formatDate(current);
+    dates.push(dateStr);
+    const holiday = isNonWorkingDay(current);
+    if (!holiday.isExcluded) {
+      workingDates.push(dateStr);
+    }
+  }
+
+  return {
+    weekStart: dates[0],
+    weekEnd: dates[dates.length - 1],
+    dates,
+    workingDates
+  };
+}
+

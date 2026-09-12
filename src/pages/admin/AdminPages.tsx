@@ -42,7 +42,8 @@ export function UserMgmtPage() {
       role: u.role, 
       status: u.status, 
       supervisorId: u.supervisorId || '',
-      phone: u.phone || ''
+      phone: u.phone || '',
+      assignedSupervisors: u.assignedSupervisors || []
     });
   };
 
@@ -96,7 +97,16 @@ export function UserMgmtPage() {
                 <tr key={u.uid}>
                   <td><div style={{display:'flex',alignItems:'center',gap:'var(--v-space-2)'}}><div className="avatar avatar-sm">{getInitials(u.displayName)}</div>{u.displayName}</div></td>
                   <td>{u.email}</td>
-                  <td><span className="badge badge-neutral" style={{fontSize:'var(--v-text-xs)'}}>{formatRole(u.role)}</span></td>
+                  <td>
+                    <div style={{display:'flex',alignItems:'center',gap:'var(--v-space-1)',flexWrap:'wrap'}}>
+                      <span className="badge badge-neutral" style={{fontSize:'var(--v-text-xs)'}}>{formatRole(u.role)}</span>
+                      {u.role === 'user' && u.assignedSupervisors && u.assignedSupervisors.length > 0 && (
+                        <span className="badge badge-info" style={{fontSize:'10px', padding:'2px 6px'}} title={`Viewer rights for ${u.assignedSupervisors.length} supervisor team(s)`}>
+                          + Viewer ({u.assignedSupervisors.length})
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td style={{fontSize:'var(--v-text-xs)',color:'var(--v-text-tertiary)'}}>
                     {u.role === 'supervisor' ? '— (Supervisor)' : (u.supervisorId || '—')}
                   </td>
@@ -173,19 +183,57 @@ export function UserMgmtPage() {
                 </select>
               </div>
               {editData.role === 'user' && (
-                <div className="input-group">
-                  <label className="input-label">Assigned Supervisor</label>
-                  <select 
-                    className="input-field" 
-                    value={editData.supervisorId || ''} 
-                    onChange={e => setEditData({...editData, supervisorId: e.target.value})}
-                  >
-                    <option value="">-- No Supervisor --</option>
-                    {supervisors.map(s => (
-                      <option key={s.uid} value={s.uid}>{s.displayName} ({s.email})</option>
-                    ))}
-                  </select>
-                </div>
+                <>
+                  <div className="input-group">
+                    <label className="input-label">Assigned Supervisor (Reporting Manager)</label>
+                    <select 
+                      className="input-field" 
+                      value={editData.supervisorId || ''} 
+                      onChange={e => setEditData({...editData, supervisorId: e.target.value})}
+                    >
+                      <option value="">-- No Supervisor --</option>
+                      {supervisors.map(s => (
+                        <option key={s.uid} value={s.uid}>{s.displayName} ({s.email})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="input-group">
+                    <label className="input-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Viewer Privileges (Optional)</span>
+                      <span style={{ fontSize: 'var(--v-text-xs)', color: 'var(--v-text-secondary)', fontWeight: 'normal' }}>
+                        {(editData.assignedSupervisors?.length || 0)} team(s) selected
+                      </span>
+                    </label>
+                    <p style={{ fontSize: 'var(--v-text-xs)', color: 'var(--v-text-tertiary)', margin: '0 0 var(--v-space-2) 0' }}>
+                      Grant this user permission to view performance of these supervisor teams:
+                    </p>
+                    <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--v-space-2)', border: '1px solid var(--v-border-primary)', borderRadius: 'var(--v-radius-md)', padding: 'var(--v-space-2)' }}>
+                      {supervisors.map(s => {
+                        const isChecked = (editData.assignedSupervisors || []).includes(s.uid);
+                        return (
+                          <label key={s.uid} style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-2)', fontSize: 'var(--v-text-xs)', cursor: 'pointer', padding: '4px 6px', borderRadius: '4px', backgroundColor: isChecked ? 'var(--v-bg-secondary)' : 'transparent' }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                const current = editData.assignedSupervisors || [];
+                                const updated = current.includes(s.uid) ? current.filter(id => id !== s.uid) : [...current, s.uid];
+                                setEditData({ ...editData, assignedSupervisors: updated });
+                              }}
+                            />
+                            <span><strong>{s.displayName}</strong> ({s.email})</span>
+                          </label>
+                        );
+                      })}
+                      {supervisors.length === 0 && (
+                        <div style={{ fontSize: 'var(--v-text-xs)', color: 'var(--v-text-tertiary)', textAlign: 'center', padding: 'var(--v-space-2)' }}>
+                          No active supervisors found.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
             <div className="modal-footer">
@@ -239,6 +287,7 @@ export function ViewerMgmtPage() {
   const [loading, setLoading] = useState(true);
   const [viewers, setViewers] = useState<AppUser[]>([]);
   const [supervisors, setSupervisors] = useState<AppUser[]>([]);
+  const [candidateUsers, setCandidateUsers] = useState<AppUser[]>([]);
   const [editingViewer, setEditingViewer] = useState<AppUser | null>(null);
   const [selectedSupervisors, setSelectedSupervisors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -248,10 +297,12 @@ export function ViewerMgmtPage() {
   async function load() {
     setLoading(true);
     try {
+      const allUsers = await fetchAllUsers();
       const vData = await fetchAllViewers();
       setViewers(vData);
-      const sData = await fetchAllSupervisors();
-      setSupervisors(sData.filter(s => s.status === 'approved'));
+      const sData = allUsers.filter(u => u.role === 'supervisor' && u.status === 'approved');
+      setSupervisors(sData);
+      setCandidateUsers(allUsers.filter(u => u.status === 'approved' && u.role === 'user' && (!u.assignedSupervisors || u.assignedSupervisors.length === 0)));
     } catch (err) {
       console.error(err);
     } finally {
@@ -276,8 +327,8 @@ export function ViewerMgmtPage() {
     try {
       await updateUserProfile(editingViewer.uid, { assignedSupervisors: selectedSupervisors });
       showToast('success', 'Assigned supervisors updated');
-      setViewers(prev => prev.map(v => v.uid === editingViewer.uid ? { ...v, assignedSupervisors: selectedSupervisors } : v));
       setEditingViewer(null);
+      await load();
     } catch (err) {
       showToast('error', 'Failed to update supervisors');
     } finally {
@@ -289,16 +340,53 @@ export function ViewerMgmtPage() {
 
   return (
     <div className="admin-page" id="viewer-mgmt-page">
-      <PageHeader title="Viewer Management" subtitle={`${viewers.length} viewer(s)`} />
+      <PageHeader title="Viewer Management" subtitle={`${viewers.length} viewer account(s)`} />
+      <div className="crud-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--v-space-2)' }}>
+        <div style={{ fontSize: 'var(--v-text-sm)', color: 'var(--v-text-secondary)' }}>
+          Manage view access for pure viewers and team members with viewer rights.
+        </div>
+        {candidateUsers.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-2)' }}>
+            <select
+              className="input-field"
+              style={{ padding: '6px 12px', fontSize: 'var(--v-text-xs)', width: 'auto' }}
+              value=""
+              onChange={(e) => {
+                const target = candidateUsers.find(u => u.uid === e.target.value);
+                if (target) handleOpenEdit(target);
+              }}
+            >
+              <option value="">+ Grant User Viewer Rights...</option>
+              {candidateUsers.map(u => (
+                <option key={u.uid} value={u.uid}>{u.displayName} ({u.email})</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
       <div className="data-table-wrapper">
         <div className="data-table-scroll">
           <table className="data-table">
-            <thead><tr><th>Name</th><th>Email</th><th>Assigned Supervisors</th><th>Status</th><th className="text-center">Actions</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Account Type</th><th>Assigned Supervisors</th><th>Status</th><th className="text-center">Actions</th></tr></thead>
             <tbody>
               {viewers.map(v => (
                 <tr key={v.uid}>
-                  <td>{v.displayName}</td>
+                  <td>
+                    <div style={{display:'flex',alignItems:'center',gap:'var(--v-space-2)'}}>
+                      <div className="avatar avatar-sm">{getInitials(v.displayName)}</div>
+                      <div>
+                        <div style={{ fontWeight: 500 }}>{v.displayName}</div>
+                      </div>
+                    </div>
+                  </td>
                   <td>{v.email}</td>
+                  <td>
+                    {v.role === 'viewer' ? (
+                      <span className="badge badge-neutral" style={{fontSize:'var(--v-text-xs)'}}>Pure Viewer</span>
+                    ) : (
+                      <span className="badge badge-info" style={{fontSize:'var(--v-text-xs)'}}>User + Viewer</span>
+                    )}
+                  </td>
                   <td style={{fontSize:'var(--v-text-xs)'}}>{v.assignedSupervisors?.length || 0} assigned</td>
                   <td><span className={`badge ${getStatusBadgeClass(v.status)}`}>{formatStatus(v.status)}</span></td>
                   <td className="text-center">

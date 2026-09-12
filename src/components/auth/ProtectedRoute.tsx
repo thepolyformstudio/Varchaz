@@ -63,8 +63,15 @@ export function ProtectedRoute({
     return <Navigate to="/pending" replace />;
   }
 
-  // Role check
-  if (allowedRoles && !allowedRoles.includes(appUser.role)) {
+  // Role check: allow if user's role matches, or if route permits 'viewer' and user has assigned supervisors
+  const hasViewerAccess = Boolean(
+    allowedRoles &&
+    allowedRoles.includes('viewer') &&
+    appUser.assignedSupervisors &&
+    appUser.assignedSupervisors.length > 0
+  );
+
+  if (allowedRoles && !allowedRoles.includes(appUser.role) && !hasViewerAccess) {
     // Redirect to appropriate home
     switch (appUser.role) {
       case 'user': return <Navigate to="/" replace />;

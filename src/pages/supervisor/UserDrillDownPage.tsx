@@ -49,7 +49,8 @@ export default function UserDrillDownPage() {
       const fy = user.financialYear || appUser.financialYear || 'apr-mar';
       const ytdMonths = getYTDMonths(fy);
 
-      const ids = await fetchSupervisorProducts(appUser.uid);
+      const effectiveSupervisorId = (appUser.role === 'supervisor') ? appUser.uid : (user.supervisorId || appUser.uid);
+      const ids = await fetchSupervisorProducts(effectiveSupervisorId);
       const all = await fetchActiveProducts();
       const products = ids.length > 0 ? all.filter(p => ids.includes(p.productId)) : all;
       const activeIds = products.map(p => p.productId);

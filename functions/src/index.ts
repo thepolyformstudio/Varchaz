@@ -307,6 +307,78 @@ function renderMtdHtmlTable(
   `;
 }
 
+function renderWeeklyCommitmentsHtmlTable(
+  title: string,
+  userRows: Array<{ name: string; daysCommitted: number; totalCommitted: number; totalAchieved: number; consistency: number }>
+): string {
+  let rowsHtml = '';
+  userRows.forEach((r, idx) => {
+    const consistency = r.consistency;
+    const badgeBg = consistency >= 80 ? '#dcfce7' : consistency >= 50 ? '#fef3c7' : '#fee2e2';
+    const badgeColor = consistency >= 80 ? '#15803d' : consistency >= 50 ? '#b45309' : '#b91c1c';
+    const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+
+    rowsHtml += `
+      <tr style="background-color: ${rowBg}; border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px 12px; font-size: 13px; font-weight: 600; color: #0f172a;">${r.name}</td>
+        <td style="padding: 10px 12px; font-size: 13px; text-align: center; color: #475569;">${r.daysCommitted}</td>
+        <td style="padding: 10px 12px; font-size: 13px; text-align: right; color: #334155;">₹${(r.totalCommitted || 0).toLocaleString('en-IN')}</td>
+        <td style="padding: 10px 12px; font-size: 13px; text-align: right; color: #334155;">₹${(r.totalAchieved || 0).toLocaleString('en-IN')}</td>
+        <td style="padding: 10px 12px; font-size: 13px; text-align: right;">
+          <span style="background-color: ${badgeBg}; color: ${badgeColor}; font-weight: bold; padding: 3px 8px; border-radius: 4px; font-size: 12px;">
+            ${consistency}%
+          </span>
+        </td>
+      </tr>
+    `;
+  });
+
+  return `
+    <div style="margin-top: 24px; margin-bottom: 24px;">
+      <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #0f172a; border-bottom: 2px solid #16a34a; padding-bottom: 6px; display: inline-block;">
+        🎯 ${title}
+      </h3>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 8px; font-family: Arial, sans-serif; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-radius: 6px; overflow: hidden;">
+        <thead>
+          <tr style="background-color: #1e293b; color: #ffffff; text-align: left;">
+            <th style="padding: 12px; font-size: 13px; font-weight: bold;">Team Member</th>
+            <th style="padding: 12px; font-size: 13px; font-weight: bold; text-align: center;">Days Entered</th>
+            <th style="padding: 12px; font-size: 13px; font-weight: bold; text-align: right;">Committed (₹)</th>
+            <th style="padding: 12px; font-size: 13px; font-weight: bold; text-align: right;">Achieved (₹)</th>
+            <th style="padding: 12px; font-size: 13px; font-weight: bold; text-align: right;">Consistency %</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+      <p style="font-size: 11px; color: #64748b; margin-top: 6px; font-style: italic;">
+        * Note: Weekly Consistency % is the average daily target fulfillment percentage capped at 100% per day.
+      </p>
+    </div>
+  `;
+}
+
+function getWeekDates(refDate: Date = new Date()): { weekStart: string; weekEnd: string; dates: string[] } {
+  const d = new Date(refDate);
+  const day = d.getDay();
+  const diffToMonday = (day === 0 ? -6 : 1) - day;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diffToMonday);
+
+  const dates: string[] = [];
+  for (let i = 0; i < 6; i++) {
+    const cur = new Date(monday);
+    cur.setDate(monday.getDate() + i);
+    dates.push(cur.toISOString().split('T')[0]);
+  }
+  return {
+    weekStart: dates[0],
+    weekEnd: dates[dates.length - 1],
+    dates
+  };
+}
+
 async function generateAndSendDailyReport(overrideRecipient?: string) {
   const now = new Date();
   const istOffset = 5.5 * 60 * 60 * 1000;
@@ -347,6 +419,14 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
 
   const dailySalesSnap = await db.collection('dailySales').get();
   const allDailySales: any[] = dailySalesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  // Fetch weekly commitments (Monday to Saturday)
+  const weekInfo = getWeekDates(istDate);
+  const commitmentsSnap = await db.collection('dailyCommitments')
+    .where('date', '>=', weekInfo.weekStart)
+    .where('date', '<=', weekInfo.weekEnd)
+    .get();
+  const allCommitments: any[] = commitmentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
   // Helper maps
   const mtdPlansByUser: Record<string, Record<string, number>> = {};
@@ -488,17 +568,66 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
       'Achievement %': `${calcPctVal(teamYtdPlanTotal, teamYtdAchTotal)}%`
     });
 
-    // Create 2-Sheet Excel for Consolidated
+    // Create Consolidated Weekly Commitments Sheet & Table
+    const consWeeklyCommitmentRows: any[] = [];
+    const teamCommitmentTableData: any[] = [];
+
+    teamMembers.forEach((u: any) => {
+      const userComms = allCommitments.filter((c: any) => c.userId === u.id);
+      let commTotal = 0;
+      let achTotal = 0;
+      let cappedSum = 0;
+      let reportedDays = 0;
+      let fulfilledDays = 0;
+
+      userComms.forEach((c: any) => {
+        commTotal += Number(c.totalCommitted || 0);
+        const ach = Number(c.totalAchieved || 0);
+        achTotal += ach;
+        if (c.isFulfilled) fulfilledDays++;
+        if (c.eodReported) {
+          reportedDays++;
+          const rawPct = c.totalCommitted > 0 ? (ach / c.totalCommitted) * 100 : 0;
+          cappedSum += Math.min(100, Math.max(0, rawPct));
+        }
+      });
+
+      const consistency = reportedDays > 0 ? Math.round((cappedSum / reportedDays) * 10) / 10 : 0;
+      const status = consistency >= 80 ? 'Target Master' : consistency >= 50 ? 'Consistent' : 'Developing';
+
+      consWeeklyCommitmentRows.push({
+        'Rep Name': u.displayName,
+        'Days Entered': `${userComms.length} days`,
+        'Days Fulfilled': `${fulfilledDays} days`,
+        'Total Committed (₹)': formatNumberVal(commTotal),
+        'Total Achieved (₹)': formatNumberVal(achTotal),
+        'Weekly Consistency % (Capped 100%)': `${consistency}%`,
+        'Status': status
+      });
+
+      teamCommitmentTableData.push({
+        name: u.displayName,
+        daysCommitted: userComms.length,
+        totalCommitted: formatNumberVal(commTotal),
+        totalAchieved: formatNumberVal(achTotal),
+        consistency
+      });
+    });
+
+    // Create 3-Sheet Excel for Consolidated
     const wbCons = XLSX.utils.book_new();
     const wsConsMtd = XLSX.utils.json_to_sheet(consMtdRows);
     const wsConsYtd = XLSX.utils.json_to_sheet(consYtdRows);
+    const wsConsCommitments = XLSX.utils.json_to_sheet(consWeeklyCommitmentRows);
     XLSX.utils.book_append_sheet(wbCons, wsConsMtd, 'Consolidated MTD');
     XLSX.utils.book_append_sheet(wbCons, wsConsYtd, 'Consolidated YTD');
+    XLSX.utils.book_append_sheet(wbCons, wsConsCommitments, 'Weekly Commitments');
     const excelBufferCons = XLSX.write(wbCons, { type: 'buffer', bookType: 'xlsx' });
     const base64ExcelCons = excelBufferCons.toString('base64');
 
-    // In-Body HTML Table (MTD ONLY as per user directive)
+    // In-Body HTML Tables
     const mtdTableHtmlCons = renderMtdHtmlTable('Team Consolidated', consMtdTableData, teamMtdPlanTotal, teamMtdAchTotal);
+    const commitmentsTableHtmlCons = renderWeeklyCommitmentsHtmlTable('Team Weekly Commitments & Consistency', teamCommitmentTableData);
 
     // List of Recipients for Consolidated Report (Supervisor + Team Members)
     const consRecipients = Array.from(new Set(
@@ -517,10 +646,11 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
 
           <div style="padding: 20px 0;">
             ${mtdTableHtmlCons}
+            ${commitmentsTableHtmlCons}
 
             <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 16px;">
               <p style="font-size: 13px; line-height: 1.5; color: #475569; margin: 0;">
-                ℹ️ <strong>Note:</strong> The full Year-to-Date (YTD Plan vs. Achievement) report is attached as an Excel workbook (<strong>Varchaz_Consolidated_Daily_Report_${todayStr}.xlsx</strong>) with separate MTD and YTD sheets.
+                ℹ️ <strong>Note:</strong> The full Year-to-Date (YTD) performance and Weekly Commitments reports are attached as an Excel workbook (<strong>Varchaz_Consolidated_Daily_Report_${todayStr}.xlsx</strong>) with separate MTD, YTD, and Weekly Commitments sheets.
               </p>
             </div>
           </div>
@@ -624,12 +754,45 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
         'Achievement %': `${calcPctVal(userYtdPlanTotal, userYtdAchTotal)}%`
       });
 
-      // Create 2-Sheet Excel for User
+      // Create 3-Sheet Excel for User
       const wbUser = XLSX.utils.book_new();
       const wsUserMtd = XLSX.utils.json_to_sheet(userMtdRows);
       const wsUserYtd = XLSX.utils.json_to_sheet(userYtdRows);
+
+      const memberComms = allCommitments.filter((c: any) => c.userId === member.id);
+      let mCommTotal = 0;
+      let mAchTotal = 0;
+      let mCappedSum = 0;
+      let mReportedDays = 0;
+      let mFulfilledDays = 0;
+
+      const userCommitmentRows: any[] = [];
+      memberComms.forEach((c: any) => {
+        mCommTotal += Number(c.totalCommitted || 0);
+        const ach = Number(c.totalAchieved || 0);
+        mAchTotal += ach;
+        if (c.isFulfilled) mFulfilledDays++;
+        if (c.eodReported) {
+          mReportedDays++;
+          const rawPct = c.totalCommitted > 0 ? (ach / c.totalCommitted) * 100 : 0;
+          mCappedSum += Math.min(100, Math.max(0, rawPct));
+        }
+
+        userCommitmentRows.push({
+          Date: c.date,
+          'Total Committed (₹)': formatNumberVal(c.totalCommitted),
+          'Total Achieved (₹)': formatNumberVal(c.totalAchieved),
+          'Fulfillment %': `${c.fulfillmentPct}%`,
+          'Status': c.isFulfilled ? 'Fulfilled' : c.eodReported ? 'Partial' : 'Pending'
+        });
+      });
+
+      const memberConsistency = mReportedDays > 0 ? Math.round((mCappedSum / mReportedDays) * 10) / 10 : 0;
+      const wsUserCommitments = XLSX.utils.json_to_sheet(userCommitmentRows.length > 0 ? userCommitmentRows : [{ Status: 'No commitments recorded this week' }]);
+
       XLSX.utils.book_append_sheet(wbUser, wsUserMtd, 'User MTD');
       XLSX.utils.book_append_sheet(wbUser, wsUserYtd, 'User YTD');
+      XLSX.utils.book_append_sheet(wbUser, wsUserCommitments, 'Weekly Commitments');
       const excelBufferUser = XLSX.write(wbUser, { type: 'buffer', bookType: 'xlsx' });
       const base64ExcelUser = excelBufferUser.toString('base64');
 
@@ -647,8 +810,18 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
             ${mtdTableHtmlUser}
 
             <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 16px;">
+              <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 14px;">🎯 Weekly Commitment Summary</h4>
+              <p style="font-size: 13px; color: #475569; margin: 0 0 6px 0;">
+                Committed: <strong>₹${(mCommTotal || 0).toLocaleString('en-IN')}</strong> | Achieved: <strong>₹${(mAchTotal || 0).toLocaleString('en-IN')}</strong> | Consistency: <strong>${memberConsistency}%</strong> (Capped at 100%) | Fulfilled Days: <strong>${mFulfilledDays}</strong>
+              </p>
+              <p style="font-size: 12px; color: #64748b; margin: 0;">
+                Full daily breakdown is attached in the <strong>Weekly Commitments</strong> Excel sheet.
+              </p>
+            </div>
+
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 16px;">
               <p style="font-size: 13px; line-height: 1.5; color: #475569; margin: 0;">
-                ℹ️ <strong>Note:</strong> Your full Year-to-Date (YTD) performance report is attached as an Excel file (<strong>Varchaz_Daily_Report_${member.displayName.replace(/\s+/g, '_')}_${todayStr}.xlsx</strong>) containing both MTD and YTD sheets.
+                ℹ️ <strong>Note:</strong> Your full Year-to-Date (YTD) performance and Weekly Commitments reports are attached as an Excel file (<strong>Varchaz_Daily_Report_${member.displayName.replace(/\s+/g, '_')}_${todayStr}.xlsx</strong>) containing MTD, YTD, and Weekly Commitments sheets.
               </p>
             </div>
           </div>
@@ -988,9 +1161,9 @@ async function generateAndSendMorningUserNudges(overrideRecipient?: string) {
   return { success: true, count: emailsDispatched, date: todayStr };
 }
 
-// Scheduled Morning Cloud Function (8:00 AM IST / 08:00 Asia/Kolkata)
+// Scheduled Morning Cloud Function (2:00 AM IST / 02:00 Asia/Kolkata)
 export const scheduledMorningUserNudge = functions.pubsub
-  .schedule('0 8 * * *')
+  .schedule('0 2 * * *')
   .timeZone('Asia/Kolkata')
   .onRun(async (context) => {
     const now = new Date();

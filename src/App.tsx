@@ -26,6 +26,7 @@ import MTDPage from './pages/user/MTDPage';
 import YTDPage from './pages/user/YTDPage';
 import MTDInactivePage from './pages/user/MTDInactivePage';
 import YTDInactivePage from './pages/user/YTDInactivePage';
+import UserCommitmentsPage from './pages/user/UserCommitmentsPage';
 
 // Supervisor
 import SupervisorHomePage from './pages/supervisor/SupervisorHomePage';
@@ -40,6 +41,7 @@ import PlanOverridePage from './pages/supervisor/PlanOverridePage';
 import TeamMTDInactivePage from './pages/supervisor/TeamMTDInactivePage';
 import TeamYTDInactivePage from './pages/supervisor/TeamYTDInactivePage';
 import ReportingTrackerPage from './pages/supervisor/ReportingTrackerPage';
+import SupervisorCommitmentsPage from './pages/supervisor/SupervisorCommitmentsPage';
 
 // Viewer
 import ViewerHomePage from './pages/viewer/ViewerHomePage';
@@ -117,6 +119,11 @@ function AppRoutes() {
           <Route path="/plan" element={
             <ProtectedRoute allowedRoles={['user']}>
               <MonthlyPlanPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/commitments" element={
+            <ProtectedRoute allowedRoles={['user']}>
+              <UserCommitmentsPage />
             </ProtectedRoute>
           } />
           <Route path="/day-view" element={
@@ -204,6 +211,11 @@ function AppRoutes() {
           <Route path="/supervisor/reporting-tracker" element={
             <ProtectedRoute allowedRoles={['supervisor']}>
               <ReportingTrackerPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/supervisor/commitments" element={
+            <ProtectedRoute allowedRoles={['supervisor', 'admin']}>
+              <SupervisorCommitmentsPage />
             </ProtectedRoute>
           } />
 

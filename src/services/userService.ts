@@ -73,10 +73,10 @@ export async function fetchAllSupervisors(): Promise<AppUser[]> {
     .sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
 }
 
-/** Fetch all viewers */
+/** Fetch all viewers (includes pure viewers and users with viewer privileges) */
 export async function fetchAllViewers(): Promise<AppUser[]> {
   const all = await fetchAllUsers();
-  return all.filter(u => u.role === 'viewer');
+  return all.filter(u => u.role === 'viewer' || (u.assignedSupervisors && u.assignedSupervisors.length > 0));
 }
 
 /** Update user profile */

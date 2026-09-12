@@ -2,8 +2,8 @@ name: Varchaz Daily Morning Nudge Cron
 
 on:
   schedule:
-    # 02:30 UTC = 08:00 (8:00 AM) IST
-    - cron: '30 2 * * *'
+    # 20:30 UTC = 02:00 (2:00 AM) IST
+    - cron: '30 20 * * *'
   workflow_dispatch:
 
 jobs:

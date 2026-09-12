@@ -15,7 +15,7 @@
    - **Weekly MTD Plan vs. Ach Auto Mailer**: Sent on the **last working day of the week at 9:00 PM IST (21:00 Asia/Kolkata / 15:30 UTC)** via Pub/Sub Cloud Function `scheduledDailyReport` and GitHub Actions `.github/workflows/daily-report.yml`.
      - 2nd & 4th weeks of the month: Dispatched on **Friday** (since 2nd & 4th Saturdays are non-working days).
      - 1st, 3rd & 5th weeks of the month: Dispatched on **Saturday** (working Saturdays).
-   - **Morning Performance Nudge**: Every day at **8:00 AM IST (08:00 Asia/Kolkata / 02:30 UTC)** via Pub/Sub Cloud Function `scheduledMorningUserNudge` and GitHub Actions `.github/workflows/morning-nudge.yml`.
+   - **Morning Performance Nudge**: Every day at **2:00 AM IST (02:00 Asia/Kolkata / 20:30 UTC previous day)** via Pub/Sub Cloud Function `scheduledMorningUserNudge` and GitHub Actions `.github/workflows/morning-nudge.yml`. (Shifted to 2:00 AM IST to bypass GitHub Actions runner queue congestion so emails arrive before the workday starts).
    - **Non-Working Day Exclusions**: Morning nudge skips execution on:
      1. All **Sundays**.
      2. **2nd Saturday** of every month.
@@ -45,4 +45,35 @@
    - **8:00 AM to 5:00 PM IST**: Displays Product Activation & Inactive Product check banners along with supervisor reflection prompts.
    - **After 5:00 PM IST**: The "Business update for the day pending" banner completely replaces the product activation banners (if daily report has not yet been submitted).
 
+6. **Dual Role Architecture (User + Viewer Rights)**:
+   - **Mechanism**: A user with primary role `user` can be granted viewer privileges by assigning supervisor IDs into their `assignedSupervisors: string[]` profile array.
+   - **Behavior**:
+     - Retains full `user` capabilities: daily sales reporting (`/report`), monthly plans (`/plan`), personal MTD/YTD, and morning performance nudges.
+     - Automatically gains access to the Viewer Dashboard (`/viewer`), supervisor drill-downs (`/viewer/supervisor/:supervisorId`), and reporting trackers for their assigned supervisor teams.
+     - Sidebar dynamically displays the **"Viewer Access"** section with a link to `/viewer`.
+     - Route security (`ProtectedRoute.tsx`) and Firestore rules (`isViewer()` check on `assignedSupervisors.size() > 0`) recognize the dual permissions.
+     - Managed in Admin UI via **User Management** (`/admin/users`) and **Viewer Management** (`/admin/viewers`).
 
+7. **Daily Commitment & Weekly Consistency Tracking Feature**:
+   - **Objective**: Morning motivational commitment popup prompting reps to commit daily planned targets (FTD), tracked against EOD reporting, with weekly consistency scoring and supervisor recognition.
+   - **Morning Commitment Modal (`DailyCommitmentModal.tsx`)**:
+     - Displays products ordered strictly with **Inactive MTD products first** (`achievement == 0`), followed by products ordered by **MTD achievement % ascending (smallest to largest)**.
+     - Enforces selecting a minimum of **5 products** with positive planned values (`committedValue > 0`).
+     - Once submitted, commitment is **strictly locked** (read-only) for the day.
+     - In View Mode, only displays the **selected/committed products** (uncommitted products are omitted).
+   - **Automatic EOD Synchronization**:
+     - Every `saveDailySales` call triggers `syncCommitmentWithSales(userId, date, products)`.
+     - Automatically calculates item-level achievement, total achieved value, fulfillment %, and `isFulfilled` status.
+   - **Fulfillment Calculation & 100% Capping**:
+     - Daily fulfillment % can exceed 100% (e.g. 150%).
+     - For **Weekly Consistency Scores** (average daily fulfillment over the week), daily fulfillment is **strictly capped at 100%** per user rule to reward steady daily discipline.
+   - **Non-Working Days**:
+     - Hidden and paused on Sundays, 2nd Saturdays, and 4th Saturdays in IST.
+   - **Supervisor Dashboard (`SupervisorHomePage.tsx`)**:
+     - Displays today's team commitments with Consolidated and User-Level views (omitting empty products).
+     - Shows fulfilled reps with a **1-Click WhatsApp Appreciation Trigger** pre-filled with thank-you message.
+   - **Interactive Weekly Pages**:
+     - User page: `/commitments` (`UserCommitmentsPage.tsx`)
+     - Supervisor page: `/supervisor/commitments` (`SupervisorCommitmentsPage.tsx`) with Excel export.
+   - **Weekly Auto-Mailer**:
+     - The last working day report includes a dedicated **Weekly Commitments & Consistency** HTML table in email bodies and a dedicated **Weekly Commitments** sheet in both consolidated and user Excel attachments.

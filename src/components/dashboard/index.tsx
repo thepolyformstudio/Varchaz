@@ -395,3 +395,5 @@ export function UserPerformanceList({
     </div>
   );
 }
+
+export { DailyCommitmentModal } from './DailyCommitmentModal';

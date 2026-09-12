@@ -101,6 +101,23 @@ export function generateWhatsAppReminderUrl(phone?: string, userName?: string, d
   return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
 }
 
+/** Generate pre-filled 1-Click WhatsApp Appreciation URL for fulfilling daily commitment */
+export function generateWhatsAppCommitmentAppreciationUrl(
+  phone?: string,
+  userName?: string,
+  totalCommitted?: number,
+  totalAchieved?: number,
+  fulfillmentPct?: number
+): string {
+  const formattedPhone = formatWhatsAppPhone(phone);
+  const text = `Hi ${userName || 'Team Member'},\n\n🎉 *Great job today!* Thank you for your commitment.\nYou have successfully fulfilled your daily commitment target of ₹${(totalCommitted || 0).toLocaleString('en-IN')} with an achievement of ₹${(totalAchieved || 0).toLocaleString('en-IN')} (${Math.round(fulfillmentPct || 100)}% fulfillment).\n\nKeep up the wonderful momentum! 🚀\n- From Varchaz Performance`;
+
+  if (formattedPhone) {
+    return `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(text)}`;
+  }
+  return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+}
+
 /** Automated WhatsApp Gateway dispatch helper (UltraMsg / WhatsApp Cloud API / Webhook) */
 export async function dispatchAutomatedWhatsAppMessage(phone: string, text: string, gatewayUrl?: string, apiKey?: string): Promise<boolean> {
   const formattedPhone = formatWhatsAppPhone(phone);

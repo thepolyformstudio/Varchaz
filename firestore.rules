@@ -27,7 +27,10 @@ service cloud.firestore {
     }
 
     function isViewer() {
-      return isAuthenticated() && getUserData().role == 'viewer';
+      return isAuthenticated() && (
+        getUserData().role == 'viewer' ||
+        getUserData().get('assignedSupervisors', []).size() > 0
+      );
     }
 
     function isApproved() {
@@ -218,6 +221,28 @@ service cloud.firestore {
     match /mail/{mailId} {
       allow create: if isAuthenticated() && (isAdmin() || isSupervisor());
       allow read, update, delete: if false;
+    }
+
+    // ──────────────────────────────────────────────────
+    // Daily Commitments
+    // Document ID format: {userId}_{YYYY-MM-DD}
+    // ──────────────────────────────────────────────────
+    match /dailyCommitments/{commitmentId} {
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.supervisorId == request.auth.uid ||
+        isAdmin() ||
+        isViewer()
+      );
+
+      allow create: if isAuthenticated() && isApproved() &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update: if isAuthenticated() && isApproved() &&
+        (request.resource.data.userId == request.auth.uid || isAdmin());
+
+      allow delete: if false;
     }
 
     // ──────────────────────────────────────────────────

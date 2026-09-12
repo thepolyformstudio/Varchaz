@@ -188,3 +188,45 @@ export interface ExportOptions {
   columns: { header: string; key: string }[];
   fileName: string;
 }
+
+// ─── Daily Commitments ────────────────────────────────────
+export interface DailyCommitmentItem {
+  productId: string;
+  productName: string;
+  category: string;
+  mtdPlan: number;
+  mtdAch: number;
+  mtdPct: number;
+  committedValue: number;          // Morning planned FTD value
+  achievedValue?: number;          // Populated from EOD report
+  fulfillmentPct?: number;         // (achievedValue / committedValue) * 100
+}
+
+export interface DailyCommitment {
+  id: string;                      // Document ID: {userId}_{YYYY-MM-DD}
+  userId: string;
+  userName: string;
+  supervisorId: string;
+  date: string;                    // YYYY-MM-DD
+  month: string;                   // YYYY-MM
+  committedAt: any;
+  items: DailyCommitmentItem[];    // Only committed products stored
+  totalCommitted: number;
+  totalAchieved?: number;
+  fulfillmentPct?: number;         // Overall day's fulfillment %
+  isFulfilled?: boolean;           // true if totalAchieved >= totalCommitted
+  eodReported: boolean;            // true once EOD sales report is submitted
+  eodReportedAt?: any;
+  isLocked: boolean;               // Always true once saved
+}
+
+export interface WeeklyCommitmentSummary {
+  weekStart: string;               // Monday YYYY-MM-DD
+  weekEnd: string;                 // Saturday YYYY-MM-DD
+  totalCommitted: number;
+  totalAchieved: number;
+  averageFulfillmentPct: number;   // Capped at 100% for averages
+  daysCommitted: number;
+  daysReported: number;
+  commitments: DailyCommitment[];
+}

@@ -7,14 +7,16 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { SummaryCard, MissingReportAlert, PerformanceTable } from '../../components/dashboard';
 import { LoadingSpinner, PageHeader } from '../../components/shared';
-import { getToday, getCurrentMonth, getGreeting, getYTDMonths, displayMonth, getISTHour } from '../../utils/dateUtils';
+import { getToday, getCurrentMonth, getGreeting, getYTDMonths, displayMonth, getISTHour, isNonWorkingDay, getISTDate } from '../../utils/dateUtils';
 import { buildMTDPerformance, buildYTDPerformance, calcGrandTotal } from '../../utils/calculations';
 import { formatIndianNumber, formatPercent } from '../../utils/formatters';
 import { fetchActiveProducts, fetchSupervisorProducts } from '../../services/productService';
 import { fetchMonthlyPlan, fetchPlansForMonths } from '../../services/planService';
 import { fetchMonthlySales, fetchSalesMultiMonth, hasReportedToday } from '../../services/salesService';
+import { fetchDailyCommitment } from '../../services/commitmentService';
+import { DailyCommitmentModal } from '../../components/dashboard';
 import { Target, TrendingUp, BarChart3, Calendar, FileText, AlertTriangle, CheckCircle2, HelpCircle, Sparkles } from 'lucide-react';
-import type { Product, ProductPerformance } from '../../types';
+import type { Product, ProductPerformance, DailyCommitment } from '../../types';
 
 export default function UserHomePage() {
   const { appUser } = useAuth();
@@ -23,6 +25,9 @@ export default function UserHomePage() {
   const [reported, setReported] = useState(true);
   const [mtdData, setMtdData] = useState<ProductPerformance[]>([]);
   const [ytdData, setYtdData] = useState<ProductPerformance[]>([]);
+  const [todayCommitment, setTodayCommitment] = useState<DailyCommitment | null>(null);
+  const [commitmentModalOpen, setCommitmentModalOpen] = useState(false);
+  const [activeProductList, setActiveProductList] = useState<Product[]>([]);
 
   useEffect(() => {
     if (!appUser) return;
@@ -48,10 +53,15 @@ export default function UserHomePage() {
         products = await fetchActiveProducts();
       }
       const activeIds = products.map(p => p.productId);
+      setActiveProductList(products);
 
       // Check if reported today
       const hasReported = await hasReportedToday(appUser.uid);
       setReported(hasReported);
+
+      // Fetch today's commitment
+      const commitment = await fetchDailyCommitment(appUser.uid, today);
+      setTodayCommitment(commitment);
 
       // MTD
       const plan = await fetchMonthlyPlan(appUser.uid, month);
@@ -93,6 +103,67 @@ export default function UserHomePage() {
         title={`${getGreeting()}, ${appUser.displayName.split(' ')[0]}`}
         subtitle="Here's your performance snapshot"
       />
+
+      {/* Commitment for the Day Banner (Working days only) */}
+      {!isNonWorkingDay(getISTDate()).isExcluded && appUser.role === 'user' && (
+        <div 
+          className="user-insight-banner"
+          onClick={() => setCommitmentModalOpen(true)}
+          style={{ 
+            cursor: 'pointer',
+            backgroundColor: todayCommitment ? 'var(--v-bg-primary)' : 'var(--v-primary-50)',
+            border: `1px solid ${todayCommitment ? 'var(--v-success-500)' : 'var(--v-primary-300)'}`,
+            marginBottom: 'var(--v-space-4)',
+            padding: 'var(--v-space-4)',
+            borderRadius: 'var(--v-radius-lg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 'var(--v-space-3)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-3)' }}>
+            <div style={{ 
+              padding: 10, 
+              borderRadius: 'var(--v-radius-md)', 
+              backgroundColor: todayCommitment ? 'var(--v-success-50)' : 'var(--v-primary-100)', 
+              color: todayCommitment ? 'var(--v-success-700)' : 'var(--v-primary-700)' 
+            }}>
+              <Target size={24} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-2)', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 700, fontSize: 'var(--v-text-base)', color: 'var(--v-text-primary)' }}>
+                  {todayCommitment ? "Today's Commitment" : "Daily Commitment: Set Your Targets"}
+                </span>
+                {todayCommitment ? (
+                  <span className="badge badge-success" style={{ fontSize: '11px', fontWeight: 700 }}>
+                    {todayCommitment.items.length} Products (₹{formatIndianNumber(todayCommitment.totalCommitted)})
+                  </span>
+                ) : (
+                  <span className="badge badge-warning" style={{ fontSize: '11px', fontWeight: 700 }}>
+                    Pending Morning Commitment
+                  </span>
+                )}
+              </div>
+              <p style={{ margin: '4px 0 0 0', fontSize: 'var(--v-text-xs)', color: 'var(--v-text-secondary)' }}>
+                {todayCommitment 
+                  ? (todayCommitment.eodReported 
+                      ? `EOD Achievement: ₹${formatIndianNumber(todayCommitment.totalAchieved || 0)} (${todayCommitment.fulfillmentPct || 0}% fulfilled). Click to view details.` 
+                      : "Locked and active. Click to view your committed products.")
+                  : "Pick at least 5 products and commit numbers to power your sales focus for the day!"}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--v-space-2)' }}>
+            <button className={`btn ${todayCommitment ? 'btn-secondary' : 'btn-primary'} btn-sm`}>
+              {todayCommitment ? "View Commitment" : "🎯 Commit for Today"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* After 5:00 PM IST: Pending Business Update Banner */}
       {isPendingReportWindow && !reported && (
@@ -216,6 +287,22 @@ export default function UserHomePage() {
           exportFileName={`MTD_${getCurrentMonth()}`}
         />
       </div>
+
+      {/* Daily Commitment Modal */}
+      <DailyCommitmentModal
+        isOpen={commitmentModalOpen}
+        onClose={() => setCommitmentModalOpen(false)}
+        onSaved={(c) => {
+          setTodayCommitment(c);
+        }}
+        existingCommitment={todayCommitment}
+        products={activeProductList}
+        mtdData={mtdData}
+        userId={appUser.uid}
+        userName={appUser.displayName}
+        supervisorId={appUser.supervisorId || ''}
+        date={getToday()}
+      />
     </div>
   );
 }
