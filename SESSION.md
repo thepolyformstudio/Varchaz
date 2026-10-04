@@ -26,9 +26,14 @@
    - **`Varchaz Reports <varchazreport@gmail.com>`**
    - Configured via Gmail SMTP (`smtp.gmail.com:587`) using App Password.
 
-2. **Schedule, Timing & Rules**:
-   - **Daily 4 Product Group MIS Emails**: Dispatched daily at **9:00 PM IST (21:00 Asia/Kolkata)**.
-   - **Recipients**: All approved users and supervisors on their `automailerEmail`.
+2. **Schedule, Timing & Exclusion Day Rules**:
+   - **Daily 4 Product Group MIS Emails**: Dispatched daily at **9:00 PM IST (21:00 Asia/Kolkata / 15:30 UTC)**.
+   - **Non-Working Day Exclusions (Strictly Paused)**:
+     1. All **Sundays**.
+     2. **2nd Saturday** of every month.
+     3. **4th Saturday** of every month.
+   - **Working Days (Dispatched)**: Monday through Friday, plus **1st, 3rd, and 5th Saturdays**.
+   - **Recipients**: TO All approved team members (`role === 'user'`) &bull; CC All supervisors (`role === 'supervisor'`) and admins.
    - **On-Demand Manual Trigger**: Admin/Supervisor trigger via `sendProductGroupReportsNow` callable or CLI `node scripts/sendDailyReportCron.cjs --daily-groups`.
 
 3. **Supervisor Automailer Target Email Management**:

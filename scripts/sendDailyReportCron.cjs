@@ -1128,6 +1128,12 @@ async function runProductGroupReports(overrideRecipient) {
   const todayStr = istDate.toISOString().split('T')[0];
   const currentMonthStr = todayStr.substring(0, 7);
 
+  const holidayCheck = isNonWorkingDay(istDate);
+  if (holidayCheck.isExcluded && !process.env.FORCE_RUN && !overrideRecipient) {
+    console.log(`Skipping Daily Product Group MTD MIS dispatch today (${todayStr}): Non-working day (${holidayCheck.reason}).`);
+    return { success: false, message: `Skipped: Non-working day (${holidayCheck.reason})` };
+  }
+
   console.log(`Starting Daily Product Group MTD MIS dispatch for date: ${todayStr} (IST)...`);
 
   const [productsSnap, usersSnap, dailySalesSnap] = await Promise.all([
