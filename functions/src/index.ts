@@ -202,6 +202,16 @@ export const adminBulkApprove = functions.https.onCall(async (data, context) => 
 // ──────────────────────────────────────────────────
 // 6. Daily Excel & Body Report Core Generator & Dispatcher
 // ──────────────────────────────────────────────────
+function escapeHtml(str: any): string {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function getCategoryRank(category: string): number {
   const cat = (category || '').toLowerCase().trim();
   if (cat.includes('liabilit')) return 1;
@@ -255,8 +265,8 @@ function renderMtdHtmlTable(
 
     rowsHtml += `
       <tr style="background-color: ${rowBg}; border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 10px 12px; font-size: 13px; color: #475569;">${r.category}</td>
-        <td style="padding: 10px 12px; font-size: 13px; font-weight: 600; color: #0f172a;">${r.product}</td>
+        <td style="padding: 10px 12px; font-size: 13px; color: #475569;">${escapeHtml(r.category)}</td>
+        <td style="padding: 10px 12px; font-size: 13px; font-weight: 600; color: #0f172a;">${escapeHtml(r.product)}</td>
         <td style="padding: 10px 12px; font-size: 13px; text-align: right; color: #334155;">${r.plan.toLocaleString('en-IN')}</td>
         <td style="padding: 10px 12px; font-size: 13px; text-align: right; color: #334155;">${r.ach.toLocaleString('en-IN')}</td>
         <td style="padding: 10px 12px; font-size: 13px; text-align: right;">
@@ -274,7 +284,7 @@ function renderMtdHtmlTable(
   return `
     <div style="margin-bottom: 24px;">
       <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #0f172a; border-bottom: 2px solid #2563eb; padding-bottom: 6px; display: inline-block;">
-        ${title} (MTD Plan vs. Achievement)
+        ${escapeHtml(title)} (MTD Plan vs. Achievement)
       </h3>
       <table style="width: 100%; border-collapse: collapse; margin-top: 8px; font-family: Arial, sans-serif; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-radius: 6px; overflow: hidden;">
         <thead>
@@ -320,7 +330,7 @@ function renderWeeklyCommitmentsHtmlTable(
 
     rowsHtml += `
       <tr style="background-color: ${rowBg}; border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 10px 12px; font-size: 13px; font-weight: 600; color: #0f172a;">${r.name}</td>
+        <td style="padding: 10px 12px; font-size: 13px; font-weight: 600; color: #0f172a;">${escapeHtml(r.name)}</td>
         <td style="padding: 10px 12px; font-size: 13px; text-align: center; color: #475569;">${r.daysCommitted}</td>
         <td style="padding: 10px 12px; font-size: 13px; text-align: right; color: #334155;">₹${(r.totalCommitted || 0).toLocaleString('en-IN')}</td>
         <td style="padding: 10px 12px; font-size: 13px; text-align: right; color: #334155;">₹${(r.totalAchieved || 0).toLocaleString('en-IN')}</td>
@@ -336,7 +346,7 @@ function renderWeeklyCommitmentsHtmlTable(
   return `
     <div style="margin-top: 24px; margin-bottom: 24px;">
       <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #0f172a; border-bottom: 2px solid #16a34a; padding-bottom: 6px; display: inline-block;">
-        🎯 ${title}
+        🎯 ${escapeHtml(title)}
       </h3>
       <table style="width: 100%; border-collapse: collapse; margin-top: 8px; font-family: Arial, sans-serif; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-radius: 6px; overflow: hidden;">
         <thead>
@@ -478,7 +488,7 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
   });
 
   const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-  const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
+  const apiKey = process.env.EMAIL_API_KEY || '';
 
   // Guard: Verify if automated reporting is enabled before emailing users and supervisors
   const settingsDoc = await db.collection('settings').doc('dailyReportConfig').get();
@@ -637,11 +647,14 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
     const mtdTableHtmlCons = renderMtdHtmlTable('Team Consolidated', consMtdTableData, teamMtdPlanTotal, teamMtdAchTotal);
     const commitmentsTableHtmlCons = renderWeeklyCommitmentsHtmlTable('Team Weekly Commitments & Consistency', teamCommitmentTableData);
 
-    // List of Recipients for Consolidated Report (Supervisor + Team Members)
+    // List of Recipients for Consolidated Report (Supervisor + Team Members, strictly excluding admins)
     const consRecipients = Array.from(new Set(
       overrideRecipient
         ? [overrideRecipient]
-        : teamMembers.map((u: any) => u.automailerEmail || u.email).filter(Boolean)
+        : teamMembers
+            .filter((u: any) => u.role !== 'admin')
+            .map((u: any) => u.automailerEmail || u.email)
+            .filter(Boolean)
     ));
 
     if (consRecipients.length > 0) {
@@ -690,10 +703,11 @@ async function generateAndSendDailyReport(overrideRecipient?: string) {
     }
 
     // ──────────────────────────────────────────────────
-    // TYPE B: INDIVIDUAL USER LEVEL REPORTS (TO: User, CC: Supervisor)
+    // TYPE B: INDIVIDUAL USER LEVEL REPORTS (TO: User, CC: Supervisor - NEVER Admin)
     // ──────────────────────────────────────────────────
     for (const member of teamMembers) {
       if (member.id === supId) continue; // Skip supervisor self in individual pass
+      if (member.role === 'admin') continue; // STRICT RULE: Never send daily reports to admin
 
       const userTargetEmail = member.automailerEmail || member.email;
       if (!userTargetEmail) continue;
@@ -953,9 +967,9 @@ export const sendDailyReportNow = functions.https.onCall(async (data, context) =
   }
 
   const callerDoc = await db.collection('users').doc(context.auth.uid).get();
-  const callerRole = callerDoc.data()?.role;
-  if (callerRole !== 'admin' && callerRole !== 'supervisor') {
-    throw new functions.https.HttpsError('permission-denied', 'Only admins or supervisors can trigger daily report emails');
+  const callerData = callerDoc.data();
+  if (callerData?.status !== 'approved' || (callerData?.role !== 'admin' && callerData?.role !== 'supervisor')) {
+    throw new functions.https.HttpsError('permission-denied', 'Only approved admins or supervisors can trigger daily report emails');
   }
 
   const { recipientEmail } = data || {};
@@ -1031,7 +1045,7 @@ function renderProductGroupMisHtmlTable(
     rowsHtml += `
       <tr style="background-color: ${rowBg};">
         <td style="padding: 9px 12px; text-align: left; font-weight: 600; color: #1e293b; border: 1px solid #e2e8f0; font-size: 13px; white-space: nowrap;">
-          ${rep.displayName || 'Team Member'}
+          ${escapeHtml(rep.displayName || 'Team Member')}
         </td>
         ${cellsHtml}
       </tr>
@@ -1051,7 +1065,7 @@ function renderProductGroupMisHtmlTable(
 
   const productHeadersHtml = products.map((p: any) => `
     <th style="padding: 10px 8px; font-size: 12px; font-weight: 700; color: #0f172a; border: 1px solid #e2e8f0; text-align: center; white-space: nowrap;">
-      ${p.name || p.productName}
+      ${escapeHtml(p.name || p.productName)}
     </th>
   `).join('');
 
@@ -1063,7 +1077,7 @@ function renderProductGroupMisHtmlTable(
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
           <div>
             <h2 style="margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em;">
-              Varchaz — Daily MTD Report: ${groupName}
+              Varchaz — Daily MTD Report: ${escapeHtml(groupName)}
             </h2>
             <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">
               Month-to-Date Performance MIS &bull; Product Group Overview
@@ -1152,7 +1166,7 @@ async function generateAndSendProductGroupReports(overrideRecipient?: string) {
   // Left column: All active team reps (excluding supervisors)
   const reps = allUsers.filter((u: any) => u.role === 'user').sort((a: any, b: any) => (a.displayName || '').localeCompare(b.displayName || ''));
 
-  // Target recipients: All active reps in TO, Supervisors and Admins in CC
+  // Target recipients: All active reps in TO, Supervisors in CC (Admins STRICTLY excluded per policy)
   let toRecipients: string[] = [];
   let ccRecipients: string[] = [];
   if (overrideRecipient) {
@@ -1165,9 +1179,10 @@ async function generateAndSendProductGroupReports(overrideRecipient?: string) {
         .filter(Boolean)
     ));
 
+    // STRICT: Do not send daily reports to admins. CC only supervisors.
     ccRecipients = Array.from(new Set(
       allUsers
-        .filter((u: any) => u.role === 'supervisor' || u.role === 'admin')
+        .filter((u: any) => u.role === 'supervisor')
         .map((u: any) => (u.automailerEmail || u.email || '').trim().toLowerCase())
         .filter(Boolean)
     ));
@@ -1211,7 +1226,7 @@ async function generateAndSendProductGroupReports(overrideRecipient?: string) {
   ];
 
   const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-  const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
+  const apiKey = process.env.EMAIL_API_KEY || '';
 
   let emailsDispatched = 0;
 
@@ -1268,9 +1283,9 @@ export const sendProductGroupReportsNow = functions.https.onCall(async (data, co
   }
 
   const callerDoc = await db.collection('users').doc(context.auth.uid).get();
-  const callerRole = callerDoc.data()?.role;
-  if (callerRole !== 'admin' && callerRole !== 'supervisor') {
-    throw new functions.https.HttpsError('permission-denied', 'Only admins or supervisors can trigger daily product group emails');
+  const callerData = callerDoc.data();
+  if (callerData?.status !== 'approved' || (callerData?.role !== 'admin' && callerData?.role !== 'supervisor')) {
+    throw new functions.https.HttpsError('permission-denied', 'Only approved admins or supervisors can trigger daily product group emails');
   }
 
   const { recipientEmail } = data || {};
@@ -1339,7 +1354,7 @@ async function generateAndSendMorningUserNudges(overrideRecipient?: string) {
   });
 
   const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-  const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
+  const apiKey = process.env.EMAIL_API_KEY || '';
 
   // Guard: Verify if automated morning nudges are enabled before emailing users and supervisors
   const settingsDoc = await db.collection('settings').doc('dailyReportConfig').get();
@@ -1523,9 +1538,9 @@ export const sendMorningUserNudgeNow = functions.https.onCall(async (data, conte
   }
 
   const callerDoc = await db.collection('users').doc(context.auth.uid).get();
-  const callerRole = callerDoc.data()?.role;
-  if (callerRole !== 'admin' && callerRole !== 'supervisor') {
-    throw new functions.https.HttpsError('permission-denied', 'Only admins or supervisors can trigger morning user nudge emails');
+  const callerData = callerDoc.data();
+  if (callerData?.status !== 'approved' || (callerData?.role !== 'admin' && callerData?.role !== 'supervisor')) {
+    throw new functions.https.HttpsError('permission-denied', 'Only approved admins or supervisors can trigger morning user nudge emails');
   }
 
   const { recipientEmail } = data || {};
@@ -1588,7 +1603,11 @@ export const sendCustomPasswordResetEmail = functions.https.onCall(async (data, 
     `;
 
     const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-    const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
+    const apiKey = process.env.EMAIL_API_KEY;
+
+    if (!apiKey) {
+      throw new functions.https.HttpsError('failed-precondition', 'Email service API key is not configured.');
+    }
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -1609,11 +1628,12 @@ export const sendCustomPasswordResetEmail = functions.https.onCall(async (data, 
       throw new Error(`Email microservice error (${response.status}): ${errText}`);
     }
 
-    return { success: true, message: 'Password reset link sent to ' + cleanEmail };
+    return { success: true, message: 'If an account exists with this email address, a password reset link has been sent.' };
   } catch (err: any) {
     console.error('Error generating/sending password reset email:', err);
     if (err.code === 'auth/user-not-found') {
-      throw new functions.https.HttpsError('not-found', 'No user account found with this email address.');
+      // Prevent user enumeration: return identical success response if user does not exist
+      return { success: true, message: 'If an account exists with this email address, a password reset link has been sent.' };
     }
     throw new functions.https.HttpsError('internal', err.message || 'Failed to send password reset email.');
   }

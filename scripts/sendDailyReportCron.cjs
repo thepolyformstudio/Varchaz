@@ -5,31 +5,28 @@
 const admin = require('firebase-admin');
 const XLSX = require('xlsx');
 
-const DEFAULT_SERVICE_ACCOUNT = {
-  type: "service_account",
-  project_id: "varchaz",
-  private_key_id: "4b6b2568d3dcc6c4c0d6f2b21d158e44ca60faeb",
-  private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC18a96oCuEj23O\neOHvWREB682Zhma8WAQ3KkymKdnwc6eHR+YC/u5SEhp81Qi+5NXSTdF1QWvnYw8X\nVw0Ebz/sQJx37T/wSGbWZR/bwR2glKmCKCN+7JzyPAL0y8TM7rzPMvve6NBggTp/\nwN7+QqmSLbZcgg2kjub6CU1yLom2B13QtdM9xI0nkk0a7Y4SHlxttl/OIELHemf7\ndUer1KycRa6VJyhjkz4PFxxKI3id1AF2l8liDmWQ0XKNbS2/nUnvr3Wn9els90oi\nxoyc+d2n2vc6tYRqvv1vUFvbz3Pj2mKHOnorf82P0b+GbQoDRrU5z7q4GXUx0Ozr\nO9qFbq5jAgMBAAECggEAS5UIGb/Z9CqFKiWrbfupBgxID8P2f71smuIWj1yJbcsN\nyDQFCC+RH0Tn/f2dsXdsn/21yqkPw0KybTa7cKEqg+FfXq6PRik9l0jREEBMJ346\nYJh+DmcK19I4RCs2KQ/wHX8HhNVgYwasH5Am0qcsvE4DGLDqK/c1Wp9srcdJa/U1\nlsjSrgjb4HFPQt1jHTZsVBc8BL2O+vmEjX1fvjX0bWpa+WnS0uz6W9serW3BrUvN\ndUqxv6dTqtkUVBCn88cwFLWZkyLxSeYO70vuJWfVcGo44VHDebdCbSZ5xKD9Q/rH\nUkLQ7N3if0x2/9Q91Yprh9wwoJcvkkQMrLhqtTz/QQKBgQDpX4QxUXSbsivzWI+N\nkBD8pUmv5LgkH5l3ZvCQ9T0nywRBRkeko6D+fiZ02h7asHSnWoeHNvMcFYb6o7an\n5c4vIV4ssasxzXbtnno0LW8pZVd8U2karegToIZqZX+qpOITqsUmGv3y8KzR0dGH\ndlq3arOWyBBBboboZiMRj1o8gwKBgQDHlaoqsV5SR5rXdWMbqwHXQQ+y2uuk0uvm\nGuFcSY5dE4pMKg1ot9ogaknpsjsRw4iRdJx8ojvpsLsw/kSyqXnDZ6XYOJtyz//c\nIfPF9cpWJqor0XLwhuMKwKDv3NYQTj/mjU0xsIzXwuoBej1xvV+taOG+Do9rvEJY\nY3YDT5TgoQKBgQCvq/QBf/SMQymsa8zb3ke7NtzqJ/ypTJQkenu6UrDvZHZWgIXr\nnDTTfbiLG6pAKrYVSCNfGHEWgenygAw+BNIZTj/q2u8odScCJdqNrmnQOnYJo2wp\n5iEdrSehrbfVh3qbHWB8l7L0DlG5O/1CwEf3a722UfFSn9Wz2TaqwENH6wKBgQCO\nYJYkHqPKzooHahZphnSpuiAY11ODIXRnkoVx8Ic+ntHpw5YNPhq9RRW1QRAie/rQ\nyP9ZaeKTsx/Ws40OZxgV7brBpKBAJ2G/B/l/HvhYvPxoheIY9CDDaudkNYX/29J6\nBhMrf2b6BHIq26k5mn7Glit0Ca8GjCZIJ6vocL0kAQKBgQCb9ZeWvAaasn2NHh0G\nlXxSCg0pgAi7/NzDlWJ+NIS8tNYSaGK9JLyEPw4skUHsBrq3pmm0m0zx81PL4pas\n2ubDeRRnJ/LIHwySxnB/by+0WEnM6axlGNBCKMRn8h9x9YJ4r1BEOXGghlTBm9IZ\n/n93PEvm+EoHaUNzKZjNpuX0mg==\n-----END PRIVATE KEY-----\n",
-  client_email: "firebase-adminsdk-fbsvc@varchaz.iam.gserviceaccount.com",
-  client_id: "115324774516365282414",
-  auth_uri: "https://accounts.google.com/o/oauth2/auth",
-  token_uri: "https://oauth2.googleapis.com/token",
-  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-  client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40varchaz.iam.gserviceaccount.com",
-  universe_domain: "googleapis.com"
-};
-
 function initializeFirebase() {
   if (admin.apps.length > 0) return;
 
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  let serviceAccount = DEFAULT_SERVICE_ACCOUNT;
-  if (serviceAccountJson) {
+  if (!serviceAccountJson) {
+    // If running in an environment with Application Default Credentials (e.g., GCP / Cloud Functions)
     try {
-      serviceAccount = JSON.parse(serviceAccountJson);
-    } catch (e) {
-      console.warn('Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON, using default credentials.');
+      admin.initializeApp();
+      console.log('Initializing Firebase Admin with Application Default Credentials...');
+      return;
+    } catch (err) {
+      console.error('CRITICAL: FIREBASE_SERVICE_ACCOUNT_JSON environment variable is missing.');
+      process.exit(1);
     }
+  }
+
+  let serviceAccount;
+  try {
+    serviceAccount = JSON.parse(serviceAccountJson);
+  } catch (e) {
+    console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', e.message);
+    process.exit(1);
   }
 
   console.log('Initializing Firebase Admin with service account credentials...');
@@ -367,7 +364,7 @@ async function runDailyReportCron() {
   });
 
   const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-  const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
+  const apiKey = process.env.EMAIL_API_KEY;
 
   let totalEmailsDispatched = 0;
   const supervisors = allUsers.filter(u => u.role === 'supervisor');
@@ -513,8 +510,12 @@ async function runDailyReportCron() {
 
     const mtdTableHtmlCons = renderMtdHtmlTable('Team Consolidated', consMtdTableData, teamMtdPlanTotal, teamMtdAchTotal);
     const commitmentsTableHtmlCons = renderWeeklyCommitmentsHtmlTable('Team Weekly Commitments & Consistency', teamCommitmentTableData);
+    // List of Recipients for Consolidated Report (Supervisor + Team Members, strictly excluding admins)
     const consRecipients = Array.from(new Set(
-      teamMembers.map(u => u.automailerEmail || u.email).filter(Boolean)
+      teamMembers
+        .filter(u => u.role !== 'admin')
+        .map(u => u.automailerEmail || u.email)
+        .filter(Boolean)
     ));
 
     if (consRecipients.length > 0) {
@@ -569,10 +570,11 @@ async function runDailyReportCron() {
     }
 
     // ──────────────────────────────────────────────────
-    // TYPE B: INDIVIDUAL USER LEVEL REPORTS (TO: User, CC: Supervisor)
+    // TYPE B: INDIVIDUAL USER LEVEL REPORTS (TO: User, CC: Supervisor - NEVER Admin)
     // ──────────────────────────────────────────────────
     for (const member of teamMembers) {
       if (member.id === supId) continue;
+      if (member.role === 'admin') continue; // STRICT RULE: Never send daily reports to admin
 
       const userTargetEmail = member.automailerEmail || member.email;
       if (!userTargetEmail) continue;
@@ -819,7 +821,7 @@ async function runMorningUserNudgeCron() {
   });
 
   const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-  const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
+  const apiKey = process.env.EMAIL_API_KEY;
 
   let count = 0;
 
@@ -1148,7 +1150,7 @@ async function runProductGroupReports(overrideRecipient) {
   // Left column: All active team reps (excluding supervisors)
   const reps = allUsers.filter(u => u.role === 'user').sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
 
-  // Target email recipients: All active reps in TO, Supervisors and Admins in CC
+  // Target email recipients: All active reps in TO, Supervisors in CC (Admins STRICTLY excluded per policy)
   let toRecipients = [];
   let ccRecipients = [];
   if (overrideRecipient) {
@@ -1161,9 +1163,10 @@ async function runProductGroupReports(overrideRecipient) {
         .filter(Boolean)
     ));
 
+    // STRICT: Do not send daily reports to admins. CC only supervisors.
     ccRecipients = Array.from(new Set(
       allUsers
-        .filter(u => u.role === 'supervisor' || u.role === 'admin')
+        .filter(u => u.role === 'supervisor')
         .map(u => (u.automailerEmail || u.email || '').trim().toLowerCase())
         .filter(Boolean)
     ));
@@ -1209,7 +1212,7 @@ async function runProductGroupReports(overrideRecipient) {
   ];
 
   const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-  const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
+  const apiKey = process.env.EMAIL_API_KEY;
 
   let emailsDispatched = 0;
 

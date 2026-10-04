@@ -33,7 +33,8 @@
      2. **2nd Saturday** of every month.
      3. **4th Saturday** of every month.
    - **Working Days (Dispatched)**: Monday through Friday, plus **1st, 3rd, and 5th Saturdays**.
-   - **Recipients**: TO All approved team members (`role === 'user'`) &bull; CC All supervisors (`role === 'supervisor'`) and admins.
+   - **Recipients (Strict Rule)**: **TO** All approved team members (`role === 'user'`) &bull; **CC** All supervisors (`role === 'supervisor'`).
+     - **NEVER SEND TO ADMIN**: Admins are strictly and permanently excluded from all daily report email dispatches (no admin in TO or CC).
    - **On-Demand Manual Trigger**: Admin/Supervisor trigger via `sendProductGroupReportsNow` callable or CLI `node scripts/sendDailyReportCron.cjs --daily-groups`.
 
 3. **Supervisor Automailer Target Email Management**:
@@ -91,3 +92,17 @@
      - Supervisor page: `/supervisor/commitments` (`SupervisorCommitmentsPage.tsx`) with Excel export.
    - **Weekly Auto-Mailer**:
      - The last working day report includes a dedicated **Weekly Commitments & Consistency** HTML table in email bodies and a dedicated **Weekly Commitments** sheet in both consolidated and user Excel attachments.
+
+## 8. Security Hardening & Vulnerability Remediation (Completed)
+- **Leaked Service Account Key Removed**: Removed hardcoded GCP service account private key from `scripts/sendDailyReportCron.cjs`. Loads credentials securely via `process.env.FIREBASE_SERVICE_ACCOUNT_JSON` or Application Default Credentials.
+- **Workflow Secrets Encapsulation**: Refactored `.github/workflows/daily-report.yml` and `morning-nudge.yml` to inject `EMAIL_API_KEY` exclusively via `${{ secrets.EMAIL_API_KEY }}`.
+- **Firestore Authorization Hardening**:
+  - `isAdmin()`, `isSupervisor()`, and `isViewer()` strictly enforce `isApproved()`.
+  - Disallowed unauthenticated public reads of user profiles in `match /users/{userId}`.
+  - Enforced `onlyUpdatedFields(['status', 'automailerEmail', 'updatedAt'])` on supervisor updates to prevent role escalation.
+- **Cloud Functions Security**:
+  - Enforced approved status (`status === 'approved'`) for triggering reports in `sendDailyReportNow`, `sendProductGroupReportsNow`, and `sendMorningUserNudgeNow`.
+  - Closed user enumeration vector in `sendCustomPasswordResetEmail` and removed fallback API keys.
+  - Added HTML escaping (`escapeHtml`) across all email report generators to prevent HTML/XSS injection.
+- **Microservice Timing Attack Prevention**: Implemented `secrets.compare_digest` in `email-service/main.py` and blocked unconfigured fallback API keys.
+- **HTTP Security Headers**: Added `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Strict-Transport-Security`, `Referrer-Policy`, and `Permissions-Policy` to `firebase.json`.

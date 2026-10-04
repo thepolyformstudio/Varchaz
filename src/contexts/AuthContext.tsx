@@ -155,22 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(msg);
     }
 
-    // 1. Check if user account exists in Firestore
-    try {
-      const q = query(collection(db, 'users'), where('email', '==', cleanEmail));
-      const userSnap = await getDocs(q);
-      if (userSnap.empty) {
-        const msg = `No user account found with email address "${cleanEmail}". Please check for typos.`;
-        setError(msg);
-        throw new Error(msg);
-      }
-    } catch (err: any) {
-      if (err.message && err.message.includes('No user account found')) {
-        throw err;
-      }
-    }
-
-    // 2. Try custom Cloud Function if deployed
+    // 1. Try custom Cloud Function if deployed
     try {
       const functions = getFunctions();
       const customResetCallable = httpsCallable<{ email: string }, { success: boolean; message: string }>(

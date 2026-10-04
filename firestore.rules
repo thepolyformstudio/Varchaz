@@ -18,23 +18,23 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function isApproved() {
+      return isAuthenticated() && getUserData().status == 'approved';
+    }
+
     function isAdmin() {
-      return isAuthenticated() && getUserData().role == 'admin';
+      return isApproved() && getUserData().role == 'admin';
     }
 
     function isSupervisor() {
-      return isAuthenticated() && getUserData().role == 'supervisor';
+      return isApproved() && getUserData().role == 'supervisor';
     }
 
     function isViewer() {
-      return isAuthenticated() && (
+      return isApproved() && (
         getUserData().role == 'viewer' ||
         getUserData().get('assignedSupervisors', []).size() > 0
       );
-    }
-
-    function isApproved() {
-      return getUserData().status == 'approved';
     }
 
     function isSupervisorOf(userId) {
@@ -47,15 +47,15 @@ service cloud.firestore {
     // ──────────────────────────────────────────────────
     match /users/{userId} {
       // Any authenticated user can read their own profile
-      // Supervisors can read their team members
-      // Admins can read all
-      // Viewers can read all (read-only)
-      allow read: if (isAuthenticated() && (
+      // Approved supervisors can read their team members
+      // Approved admins can read all
+      // Approved viewers can read all (read-only)
+      // Authenticated users can read supervisor profiles (for onboarding supervisor selection)
+      allow read: if isAuthenticated() && (
         isOwner(userId) ||
         isAdmin() ||
         isViewer() ||
-        resource.data.supervisorId == request.auth.uid
-      )) || (
+        (isSupervisor() && resource.data.supervisorId == request.auth.uid) ||
         resource.data.role == 'supervisor'
       );
 
@@ -65,13 +65,13 @@ service cloud.firestore {
         request.resource.data.role in ['user', 'supervisor', 'viewer'] &&
         request.resource.data.status == 'pending';
 
-      // Users can update their own displayName, phone
-      // Supervisors can update their team members' status
-      // Admins can update anything
+      // Users can update their own displayName, phone, automailerEmail, updatedAt
+      // Approved supervisors can update their team members' status, automailerEmail, updatedAt (CANNOT change role or supervisorId)
+      // Approved admins can update anything
       allow update: if isAuthenticated() && (
         (isOwner(userId) && onlyUpdatedFields(['displayName', 'phone', 'automailerEmail', 'updatedAt'])) ||
         isAdmin() ||
-        (isSupervisor() && resource.data.supervisorId == request.auth.uid)
+        (isSupervisor() && resource.data.supervisorId == request.auth.uid && onlyUpdatedFields(['status', 'automailerEmail', 'updatedAt']))
       );
 
       // No hard deletes — soft delete only (status = 'disabled')
