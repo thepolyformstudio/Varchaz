@@ -1,14 +1,14 @@
-name: Varchaz Weekly MTD Auto Mailer Cron
+name: Varchaz Daily Product Group MTD MIS Cron
 
 on:
   schedule:
-    # 15:30 UTC = 21:00 (9:00 PM) IST on Fridays & Saturdays (Dispatches on the week's last working day)
-    - cron: '30 15 * * 5,6'
+    # 15:30 UTC = 21:00 (9:00 PM) IST every day
+    - cron: '30 15 * * *'
   workflow_dispatch:
 
 jobs:
-  send-weekly-mtd-report:
-    name: Generate and Dispatch Weekly MTD Performance Emails
+  send-daily-product-group-reports:
+    name: Generate and Dispatch 4 Product Group MTD MIS Emails
     runs-on: ubuntu-latest
 
     steps:
@@ -24,10 +24,10 @@ jobs:
       - name: Install Project Dependencies
         run: npm ci || npm install
 
-      - name: Execute Weekly MTD Performance Auto Mailer
+      - name: Execute Daily Product Group MIS Auto Mailer
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           EMAIL_API_URL: 'https://varchaz-email-api-sigma.vercel.app/send'
           EMAIL_API_KEY: 'your_super_secret_api_key_here'
-        run: node scripts/sendDailyReportCron.cjs --evening
+        run: node scripts/sendDailyReportCron.cjs --daily-groups
 

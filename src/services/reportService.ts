@@ -24,7 +24,7 @@ export async function getDailyReportConfig(): Promise<DailyReportConfig> {
       const data = docSnap.data();
       return {
         recipientEmail: data.recipientEmail || '',
-        isEnabled: data.isEnabled !== false,
+        isEnabled: data.isEnabled === true,
         scheduleTime: data.scheduleTime || '20:00',
         lastSentAt: data.lastSentAt || null,
         lastStatus: data.lastStatus || ''
@@ -36,7 +36,7 @@ export async function getDailyReportConfig(): Promise<DailyReportConfig> {
 
   return {
     recipientEmail: '',
-    isEnabled: true,
+    isEnabled: false,
     scheduleTime: '20:00'
   };
 }

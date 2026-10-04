@@ -256,6 +256,13 @@ async function runDailyReportCron() {
   initializeFirebase();
   const db = admin.firestore();
 
+  const settingsDoc = await db.collection('settings').doc('dailyReportConfig').get();
+  const isEnabled = settingsDoc.exists ? settingsDoc.data()?.isEnabled === true : false;
+  if (!isEnabled && !process.env.FORCE_RUN) {
+    console.log('Weekly MTD Report auto-mailer is currently disabled in settings (isEnabled is false). Skipping execution.');
+    return;
+  }
+
   const now = new Date();
   const istOffset = 5.5 * 60 * 60 * 1000;
   const istDate = new Date(now.getTime() + istOffset);
@@ -751,6 +758,13 @@ async function runMorningUserNudgeCron() {
   initializeFirebase();
   const db = admin.firestore();
 
+  const settingsDoc = await db.collection('settings').doc('dailyReportConfig').get();
+  const isEnabled = settingsDoc.exists ? settingsDoc.data()?.isEnabled === true : false;
+  if (!isEnabled && !process.env.FORCE_RUN) {
+    console.log('Morning User Nudge auto-mailer is currently disabled in settings (isEnabled is false). Skipping execution.');
+    return;
+  }
+
   const now = new Date();
   const istOffset = 5.5 * 60 * 60 * 1000;
   const istDate = new Date(now.getTime() + istOffset);
@@ -953,9 +967,291 @@ async function runMorningUserNudgeCron() {
   console.log(`Morning User Nudge Cron completed. Dispatched ${count} email(s).`);
 }
 
+// ────────────────────────────────────────────────────────────
+// Product Group MIS Daily Reports (Liabilities, Assets, TPP, Others)
+// ────────────────────────────────────────────────────────────
+const MIS_PRODUCT_PRIORITIES = {
+  // Liabilities
+  'CA': 1, 'CA MAMC': 2, 'SA': 3, 'SA MAMC': 4, 'IP Value': 5, 'RFD Value': 6, 'UFD Nos.': 7, 'UFD Value': 8, 'Aane Do FD Val': 9, 'Aaane Do FD Val': 9,
+  // Assets (Retail + Wholesale)
+  'Home Loan Value': 1, 'LAP Value': 2, 'Auto Loan Value': 3, 'Auto Loan LC': 4, 'Personal Loan Value': 5, 'Personal Loan LC': 6, 'Business Loan Value': 7, 'Business Loan LC': 8, 'Gold Loan Value': 9, 'MEG Value': 10, 'EEG/BBG Val': 11,
+  // TPP
+  'LI': 1, 'GI/HI': 2, 'MF': 3, 'SIP': 4,
+  // Others
+  'Credit Card': 1, 'Demat/HSL': 2, 'Payzapp': 3, 'Smart Wealth': 4, 'SSS': 5
+};
+
+function sortMisProducts(products) {
+  return [...products].sort((a, b) => {
+    const nameA = a.name || a.productName || '';
+    const nameB = b.name || b.productName || '';
+    const pA = MIS_PRODUCT_PRIORITIES[nameA] || 99;
+    const pB = MIS_PRODUCT_PRIORITIES[nameB] || 99;
+    if (pA !== pB) return pA - pB;
+    return nameA.localeCompare(nameB);
+  });
+}
+
+function renderProductGroupMisHtmlTable(groupName, products, reps, mtdSalesByUser, dateStr) {
+  const colTotals = {};
+  products.forEach(p => { colTotals[p.id] = 0; });
+
+  let rowsHtml = '';
+  reps.forEach((rep, idx) => {
+    const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+    let cellsHtml = '';
+
+    products.forEach(p => {
+      const pId = p.id;
+      const ach = mtdSalesByUser[rep.id]?.[pId] || 0;
+
+      if (ach > 0) {
+        colTotals[pId] = (colTotals[pId] || 0) + ach;
+        cellsHtml += `
+          <td style="padding: 9px 8px; border: 1px solid #e2e8f0; font-size: 13px; font-weight: 600; color: #0f172a; text-align: center;">
+            ${ach.toLocaleString('en-IN')}
+          </td>
+        `;
+      } else {
+        cellsHtml += `
+          <td style="padding: 9px 8px; border: 1px solid #e2e8f0; font-size: 12px; font-weight: 600; color: #ef4444; text-align: center;">
+            Inactive
+          </td>
+        `;
+      }
+    });
+
+    rowsHtml += `
+      <tr style="background-color: ${rowBg};">
+        <td style="padding: 9px 12px; text-align: left; font-weight: 600; color: #1e293b; border: 1px solid #e2e8f0; font-size: 13px; white-space: nowrap;">
+          ${rep.displayName || 'Team Member'}
+        </td>
+        ${cellsHtml}
+      </tr>
+    `;
+  });
+
+  // Footer Totals
+  let footerCellsHtml = '';
+  products.forEach(p => {
+    const tot = colTotals[p.id] || 0;
+    footerCellsHtml += `
+      <td style="padding: 10px 8px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 700; color: #0f172a; text-align: center;">
+        ${tot > 0 ? tot.toLocaleString('en-IN') : '0'}
+      </td>
+    `;
+  });
+
+  const productHeadersHtml = products.map(p => `
+    <th style="padding: 10px 8px; font-size: 12px; font-weight: 700; color: #0f172a; border: 1px solid #e2e8f0; text-align: center; white-space: nowrap;">
+      ${p.name || p.productName}
+    </th>
+  `).join('');
+
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 980px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 8px;">
+      
+      <!-- Executive Header -->
+      <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #2563eb 100%); color: #ffffff; padding: 18px 24px; border-radius: 8px 8px 0 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h2 style="margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em;">
+              Varchaz — Daily MTD Report: ${groupName}
+            </h2>
+            <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">
+              Month-to-Date Performance MIS &bull; Product Group Overview
+            </p>
+          </div>
+          <div style="background: rgba(255, 255, 255, 0.2); padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap;">
+            ${dateStr} (9:00 PM IST)
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Data Table Container -->
+      <div style="background: #ffffff; border: 1px solid #cbd5e1; border-top: none; border-radius: 0 0 8px 8px; overflow-x: auto; padding: 16px; box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead>
+            <!-- Group Banner -->
+            <tr style="background-color: #0284c7; color: #ffffff;">
+              <th colspan="${products.length + 1}" style="padding: 10px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; text-align: center; border: 1px solid #0284c7;">
+                ${groupName}
+              </th>
+            </tr>
+            <!-- Product Column Titles -->
+            <tr style="background-color: #f1f5f9;">
+              <th style="padding: 10px 12px; font-size: 12px; font-weight: 700; color: #0f172a; border: 1px solid #e2e8f0; text-align: left; width: 140px; white-space: nowrap;">
+                User Name
+              </th>
+              ${productHeadersHtml}
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+          <tfoot>
+            <!-- Bold Total Row -->
+            <tr style="background-color: #f8fafc; font-weight: 700; border-top: 2px solid #cbd5e1;">
+              <td style="padding: 10px 12px; text-align: left; font-size: 13px; font-weight: 700; color: #0f172a; border: 1px solid #cbd5e1;">
+                Total
+              </td>
+              ${footerCellsHtml}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Footer Info -->
+      <div style="margin-top: 14px; text-align: center; color: #94a3b8; font-size: 11px;">
+        <p style="margin: 0;">Automated daily MTD performance MIS dispatched by Varchaz Performance Management System via VarchazReport@gmail.com.</p>
+        <p style="margin: 3px 0 0 0;">Report strictly reflects verified Month-to-Date (MTD) sales submitted up to 9:00 PM IST.</p>
+      </div>
+
+    </div>
+  `;
+}
+
+async function runProductGroupReports(overrideRecipient) {
+  initializeFirebase();
+  const db = admin.firestore();
+
+  const settingsDoc = await db.collection('settings').doc('dailyReportConfig').get();
+  const isEnabled = settingsDoc.exists ? settingsDoc.data()?.isEnabled === true : false;
+  if (!isEnabled && !process.env.FORCE_RUN && !overrideRecipient) {
+    console.log('Product Group Reports are currently disabled in settings (isEnabled is false). Skipping execution.');
+    return { success: false, message: 'Reporting disabled in settings' };
+  }
+
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(now.getTime() + istOffset);
+  const todayStr = istDate.toISOString().split('T')[0];
+  const currentMonthStr = todayStr.substring(0, 7);
+
+  console.log(`Starting Daily Product Group MTD MIS dispatch for date: ${todayStr} (IST)...`);
+
+  const [productsSnap, usersSnap, dailySalesSnap] = await Promise.all([
+    db.collection('products').get(),
+    db.collection('users').where('status', '==', 'approved').get(),
+    db.collection('dailySales').get()
+  ]);
+
+  const rawProducts = productsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const allUsers = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  
+  // Left column: All active team reps (excluding supervisors)
+  const reps = allUsers.filter(u => u.role === 'user').sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+
+  // Target email recipients: All active reps in TO, Supervisors and Admins in CC
+  let toRecipients = [];
+  let ccRecipients = [];
+  if (overrideRecipient) {
+    toRecipients = [overrideRecipient];
+  } else {
+    toRecipients = Array.from(new Set(
+      allUsers
+        .filter(u => u.role === 'user')
+        .map(u => (u.automailerEmail || u.email || '').trim().toLowerCase())
+        .filter(Boolean)
+    ));
+
+    ccRecipients = Array.from(new Set(
+      allUsers
+        .filter(u => u.role === 'supervisor' || u.role === 'admin')
+        .map(u => (u.automailerEmail || u.email || '').trim().toLowerCase())
+        .filter(Boolean)
+    ));
+  }
+
+  if (toRecipients.length === 0) {
+    console.log('No valid rep recipient emails found.');
+    return { success: false, message: 'No recipients found' };
+  }
+
+  // Calculate MTD sales per user per product
+  const mtdSalesByUser = {};
+  dailySalesSnap.docs.forEach(doc => {
+    const ds = doc.data();
+    if (ds.date && ds.date.substring(0, 7) === currentMonthStr && ds.date <= todayStr && ds.userId) {
+      if (!mtdSalesByUser[ds.userId]) mtdSalesByUser[ds.userId] = {};
+      Object.entries(ds.products || {}).forEach(([pId, val]) => {
+        mtdSalesByUser[ds.userId][pId] = (mtdSalesByUser[ds.userId][pId] || 0) + Number(val || 0);
+      });
+    }
+  });
+
+  const groupConfigs = [
+    {
+      name: 'Liabilities',
+      matcher: p => (p.category || '').toLowerCase().includes('liabilit')
+    },
+    {
+      name: 'Assets', // Retail Assets + Wholesale Assets combined
+      matcher: p => (p.category || '').toLowerCase().includes('asset')
+    },
+    {
+      name: 'TPP',
+      matcher: p => (p.category || '').toLowerCase().includes('tpp')
+    },
+    {
+      name: 'Others',
+      matcher: p => {
+        const cat = (p.category || '').toLowerCase();
+        return !cat.includes('liabilit') && !cat.includes('asset') && !cat.includes('tpp');
+      }
+    }
+  ];
+
+  const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
+  const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
+
+  let emailsDispatched = 0;
+
+  for (const gc of groupConfigs) {
+    const groupProds = sortMisProducts(rawProducts.filter(gc.matcher));
+    if (groupProds.length === 0) continue;
+
+    const htmlBody = renderProductGroupMisHtmlTable(gc.name, groupProds, reps, mtdSalesByUser, todayStr);
+
+    const payload = {
+      to: toRecipients,
+      subject: `[Varchaz] Daily MTD Performance MIS - ${gc.name} (${todayStr})`,
+      html: htmlBody,
+      text: `Varchaz Daily MTD Performance MIS for ${gc.name} (${todayStr}). Please view in an HTML-compatible client.`
+    };
+    if (ccRecipients.length > 0) {
+      payload.cc = ccRecipients;
+    }
+
+    try {
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify(payload)
+      });
+
+      const resData = await res.json().catch(() => ({}));
+      console.log(`Dispatched ${gc.name} email to ${toRecipients.length} user(s) (CC: ${ccRecipients.length}):`, resData.message || 'Success');
+      emailsDispatched++;
+    } catch (err) {
+      console.error(`Error sending ${gc.name} report email:`, err.message);
+    }
+  }
+
+  await db.collection('settings').doc('dailyReportConfig').set({
+    lastProductGroupsSentAt: admin.firestore.FieldValue.serverTimestamp(),
+    lastProductGroupsCount: emailsDispatched,
+    lastStatus: 'success'
+  }, { merge: true });
+
+  console.log(`Daily Product Group MIS execution completed. Dispatched ${emailsDispatched} email(s) across 4 groups.`);
+  return { success: true, count: emailsDispatched, date: todayStr };
+}
+
 if (require.main === module) {
   const isMorning = process.argv.includes('--morning');
-  const runner = isMorning ? runMorningUserNudgeCron : runDailyReportCron;
+  const isDailyGroups = process.argv.includes('--daily-groups') || process.argv.includes('--groups') || process.argv.includes('--evening');
+  const runner = isMorning ? runMorningUserNudgeCron : isDailyGroups ? runProductGroupReports : runDailyReportCron;
   runner()
     .then(() => process.exit(0))
     .catch((err) => {
@@ -964,4 +1260,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { runDailyReportCron, runMorningUserNudgeCron };
+module.exports = { runDailyReportCron, runMorningUserNudgeCron, runProductGroupReports };

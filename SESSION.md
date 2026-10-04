@@ -7,20 +7,29 @@
 - **Database**: Firebase Firestore (`firestore.rules` updated for `automailerEmail`)
 
 ## Daily Auto Mailer Configuration & Rules
+> [!NOTE]
+> **Active System: 4 Daily Product Group MTD MIS Emails.**
+> Sends 4 separate daily MTD MIS emails every day at **9:00 PM IST (21:00 Asia/Kolkata / 15:30 UTC)** to all active users on their `automailerEmail`.
+> - **Product Groups**:
+>   1. **Liabilities**: CA, CA MAMC, SA, SA MAMC, IP Value, RFD Value, UFD Nos., UFD Value, Aane Do FD Val.
+>   2. **Assets**: Retail Assets + Wholesale Assets combined (Home Loan, LAP, Auto Loan, Personal Loan, Business Loan, Gold Loan, MEG, EEG/BBG, etc.).
+>   3. **TPP**: LI, GI/HI, MF, SIP.
+>   4. **Others**: Credit Card, Demat/HSL, Payzapp, Smart Wealth, SSS.
+> - **Layout & Styling**:
+>   - Professional executive MIS table with subtle `#e2e8f0` borders (no harsh black border lines).
+>   - Left column displays all active team members/reps (`role === 'user'`; supervisors excluded).
+>   - Cells show MTD achieved value if > 0, or clean `Inactive` text strictly isolated inside that cell (no `colspan`, no cell overflow).
+>   - Footer Total row sums active achievement values across all reps for each product column.
+>   - Dispatched daily via GitHub Actions (`daily-report.yml` on cron `30 15 * * *`) and Cloud Functions (`scheduledDailyProductGroupReports` on cron `0 21 * * *`).
+
 1. **Sender Email Identity**:
    - **`Varchaz Reports <varchazreport@gmail.com>`**
    - Configured via Gmail SMTP (`smtp.gmail.com:587`) using App Password.
 
-2. **Schedule, Timing & Non-Working Day Rules**:
-   - **Weekly MTD Plan vs. Ach Auto Mailer**: Sent on the **last working day of the week at 9:00 PM IST (21:00 Asia/Kolkata / 15:30 UTC)** via Pub/Sub Cloud Function `scheduledDailyReport` and GitHub Actions `.github/workflows/daily-report.yml`.
-     - 2nd & 4th weeks of the month: Dispatched on **Friday** (since 2nd & 4th Saturdays are non-working days).
-     - 1st, 3rd & 5th weeks of the month: Dispatched on **Saturday** (working Saturdays).
-   - **Morning Performance Nudge**: Every day at **2:00 AM IST (02:00 Asia/Kolkata / 20:30 UTC previous day)** via Pub/Sub Cloud Function `scheduledMorningUserNudge` and GitHub Actions `.github/workflows/morning-nudge.yml`. (Shifted to 2:00 AM IST to bypass GitHub Actions runner queue congestion so emails arrive before the workday starts).
-   - **Non-Working Day Exclusions**: Morning nudge skips execution on:
-     1. All **Sundays**.
-     2. **2nd Saturday** of every month.
-     3. **4th Saturday** of every month.
-   - On-Demand Manual Trigger: Admin/Supervisor trigger via `sendDailyReportNow` or `sendMorningUserNudgeNow`.
+2. **Schedule, Timing & Rules**:
+   - **Daily 4 Product Group MIS Emails**: Dispatched daily at **9:00 PM IST (21:00 Asia/Kolkata)**.
+   - **Recipients**: All approved users and supervisors on their `automailerEmail`.
+   - **On-Demand Manual Trigger**: Admin/Supervisor trigger via `sendProductGroupReportsNow` callable or CLI `node scripts/sendDailyReportCron.cjs --daily-groups`.
 
 3. **Supervisor Automailer Target Email Management**:
    - **Field**: `automailerEmail?: string` on `users/{userId}` Firestore document.
