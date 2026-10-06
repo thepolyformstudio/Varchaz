@@ -1113,6 +1113,312 @@ function renderProductGroupMisHtmlTable(groupName, products, reps, mtdSalesByUse
   `;
 }
 
+/**
+ * Get all working days for the current month up to targetIstDate (in IST),
+ * excluding all Sundays and non-working Saturdays (2nd & 4th Saturday).
+ */
+function getMonthWorkingDaysUpTo(targetIstDate) {
+  const year = targetIstDate.getFullYear();
+  const month = targetIstDate.getMonth(); // 0-indexed
+  const currentDay = targetIstDate.getDate();
+  const workingDays = [];
+
+  for (let d = 1; d <= currentDay; d++) {
+    const dObj = new Date(year, month, d);
+    const holidayCheck = isNonWorkingDay(dObj);
+    if (!holidayCheck.isExcluded) {
+      const yyyy = dObj.getFullYear();
+      const mm = String(dObj.getMonth() + 1).padStart(2, '0');
+      const dd = String(dObj.getDate()).padStart(2, '0');
+      const isoDate = `${yyyy}-${mm}-${dd}`;
+
+      const dayNum = dObj.getDate();
+      const monthShort = dObj.toLocaleString('en-US', { month: 'short' });
+      const yearShort = String(dObj.getFullYear()).slice(-2);
+      const displayLabel = `${dayNum} ${monthShort} ${yearShort}`;
+
+      workingDays.push({
+        isoDate,
+        displayLabel,
+        dayNum,
+        dateObj: dObj
+      });
+    }
+  }
+  return workingDays;
+}
+
+/**
+ * Render the HTML table for the Active Products Tracker email,
+ * matching the exact multi-day grid with "Improvement from previous day".
+ */
+function renderActiveProductsTrackerHtmlTable(displayedDays, allWorkingDays, reps, countsByRepAndDate, totalsByDate, dateStr) {
+  const isMultiDay = allWorkingDays.length >= 2;
+  const latestDay = allWorkingDays[allWorkingDays.length - 1];
+  const prevDay = isMultiDay ? allWorkingDays[allWorkingDays.length - 2] : null;
+
+  // Date Column Headers
+  const dateHeadersHtml = displayedDays.map(day => `
+    <th style="padding: 10px 8px; font-size: 13px; font-weight: 700; color: #000000; border: 1.5px solid #000000; text-align: center; white-space: nowrap; background-color: #ffffff;">
+      ${day.displayLabel}
+    </th>
+  `).join('');
+
+  // Rows for each representative
+  let rowsHtml = '';
+  reps.forEach((rep) => {
+    let cellsHtml = '';
+    displayedDays.forEach(day => {
+      const cnt = countsByRepAndDate[rep.id]?.[day.isoDate] || 0;
+      cellsHtml += `
+        <td style="padding: 8px 10px; border: 1.5px solid #000000; font-size: 13px; color: #000000; text-align: center; background-color: #ffffff;">
+          ${cnt}
+        </td>
+      `;
+    });
+
+    // Improvement calculation comparing latestDay vs prevDay
+    let improvementText = 'Baseline';
+    let improvementColor = '#64748b';
+
+    if (isMultiDay && prevDay) {
+      const latestCount = countsByRepAndDate[rep.id]?.[latestDay.isoDate] || 0;
+      const prevCount = countsByRepAndDate[rep.id]?.[prevDay.isoDate] || 0;
+      if (latestCount > prevCount) {
+        improvementText = 'Improved';
+        improvementColor = '#16a34a'; // Green
+      } else if (latestCount === prevCount) {
+        improvementText = 'No Change';
+        improvementColor = '#ea580c'; // Orange
+      } else {
+        improvementText = 'Declined';
+        improvementColor = '#dc2626'; // Red
+      }
+    }
+
+    rowsHtml += `
+      <tr>
+        <td style="padding: 8px 14px; text-align: left; font-size: 13px; font-weight: 500; color: #000000; border: 1.5px solid #000000; white-space: nowrap; background-color: #ffffff;">
+          ${rep.displayName || rep.email || 'Team Member'}
+        </td>
+        ${cellsHtml}
+        <td style="padding: 8px 10px; font-size: 13px; font-weight: 700; color: ${improvementColor}; border: 1.5px solid #000000; text-align: center; white-space: nowrap; background-color: #ffffff;">
+          ${improvementText}
+        </td>
+      </tr>
+    `;
+  });
+
+  // Footer Totals Row
+  let footerTotalCellsHtml = '';
+  displayedDays.forEach(day => {
+    const tot = totalsByDate[day.isoDate] || 0;
+    footerTotalCellsHtml += `
+      <td style="padding: 10px 8px; border: 1.5px solid #000000; font-size: 14px; font-weight: 800; color: #000000; text-align: center; background-color: #ffffff;">
+        ${tot}
+      </td>
+    `;
+  });
+
+  let totalImprovementText = 'Baseline';
+  let totalImprovementColor = '#64748b';
+  if (isMultiDay && prevDay) {
+    const latestTot = totalsByDate[latestDay.isoDate] || 0;
+    const prevTot = totalsByDate[prevDay.isoDate] || 0;
+    if (latestTot > prevTot) {
+      totalImprovementText = 'Improved';
+      totalImprovementColor = '#16a34a';
+    } else {
+      totalImprovementText = 'No Change';
+      totalImprovementColor = '#ea580c';
+    }
+  }
+
+  const colSpan = displayedDays.length + 2;
+
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 980px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 8px;">
+      
+      <!-- Executive Header -->
+      <div style="background: linear-gradient(135deg, #0f172a 0%, #065f46 50%, #059669 100%); color: #ffffff; padding: 18px 24px; border-radius: 8px 8px 0 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h2 style="margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em;">
+              Varchaz — Daily Active Products Tracker
+            </h2>
+            <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">
+              Month-to-Date (MTD) Consolidated Active Products &bull; Working Days Tracker
+            </p>
+          </div>
+          <div style="background: rgba(255, 255, 255, 0.2); padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap;">
+            ${dateStr} (9:00 PM IST)
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Data Table Container -->
+      <div style="background: #ffffff; border: 1px solid #cbd5e1; border-top: none; border-radius: 0 0 8px 8px; overflow-x: auto; padding: 20px; box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; border: 1.5px solid #000000; margin: 0 auto;">
+          <thead>
+            <!-- Main Title Banner -->
+            <tr style="background-color: #ffffff;">
+              <th colspan="${colSpan}" style="padding: 12px; font-size: 16px; font-weight: 700; color: #000000; border: 1.5px solid #000000; text-align: center; letter-spacing: 0.01em;">
+                Active Products Tracker
+              </th>
+            </tr>
+            <!-- Column Titles -->
+            <tr style="background-color: #ffffff;">
+              <th style="padding: 10px 14px; font-size: 13px; font-weight: 700; color: #000000; border: 1.5px solid #000000; text-align: left; width: 140px; white-space: nowrap;">
+                User Name
+              </th>
+              ${dateHeadersHtml}
+              <th style="padding: 8px 10px; font-size: 12px; font-weight: 700; color: #000000; border: 1.5px solid #000000; text-align: center; max-width: 130px; line-height: 1.25;">
+                Improvement from previous day
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+          <tfoot>
+            <!-- Bold Total Row -->
+            <tr style="background-color: #ffffff; font-weight: 800;">
+              <td style="padding: 10px 14px; text-align: left; font-size: 14px; font-weight: 800; color: #000000; border: 1.5px solid #000000;">
+                Total
+              </td>
+              ${footerTotalCellsHtml}
+              <td style="padding: 10px 8px; font-size: 13px; font-weight: 800; color: ${totalImprovementColor}; border: 1.5px solid #000000; text-align: center;">
+                ${totalImprovementText}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <!-- Footnotes -->
+        <div style="margin-top: 16px; font-size: 12px; color: #64748b; line-height: 1.5; padding: 0 4px;">
+          <p style="margin: 0 0 4px 0;"><strong>&bull; Consolidated Monthly Metric:</strong> Cell values reflect the <strong>consolidated count of distinct products activated Month-to-Date (MTD)</strong> as of each working day (products with cumulative achievement &gt; 0 in current month).</p>
+          <p style="margin: 0 0 4px 0;"><strong>&bull; Calendar Exclusions:</strong> Non-working days (all Sundays, 2nd &amp; 4th Saturdays) are excluded from tracking.</p>
+          <p style="margin: 0;"><strong>&bull; Column Progression:</strong> Starts from 1 working day at the start of each month, increases daily up to 7 working days, and thereafter displays the last 7 working days till month end.</p>
+        </div>
+      </div>
+
+      <!-- Footer Info -->
+      <div style="margin-top: 14px; text-align: center; color: #94a3b8; font-size: 11px;">
+        <p style="margin: 0;">Automated daily active products tracker dispatched by Varchaz Performance Management System via VarchazReport@gmail.com.</p>
+        <p style="margin: 3px 0 0 0;">Report strictly reflects verified Month-to-Date (MTD) sales submitted up to 9:00 PM IST.</p>
+      </div>
+
+    </div>
+  `;
+}
+
+/**
+ * Dispatch the Active Products Tracker email.
+ */
+async function dispatchActiveProductsTrackerMail({
+  rawProducts,
+  reps,
+  dailySalesSnap,
+  todayStr,
+  currentMonthStr,
+  istDate,
+  toRecipients,
+  ccRecipients,
+  apiUrl,
+  apiKey
+}) {
+  const allWorkingDays = getMonthWorkingDaysUpTo(istDate);
+  if (allWorkingDays.length === 0) {
+    console.log('Active Products Tracker: No working days in current month up to today. Skipping.');
+    return { success: false, message: 'No working days in month' };
+  }
+
+  // Display up to the last 7 working days (starts with 1 on day 1, up to 7)
+  const displayedDays = allWorkingDays.length <= 7 ? allWorkingDays : allWorkingDays.slice(-7);
+
+  const validProductIds = new Set(rawProducts.map(p => p.id));
+
+  // Compute consolidated MTD active products for each rep on each working day
+  const countsByRepAndDate = {};
+  const totalsByDate = {};
+  displayedDays.forEach(d => { totalsByDate[d.isoDate] = 0; });
+  if (allWorkingDays.length >= 2) {
+    const prevDay = allWorkingDays[allWorkingDays.length - 2];
+    totalsByDate[prevDay.isoDate] = 0;
+  }
+
+  reps.forEach(rep => {
+    countsByRepAndDate[rep.id] = {};
+
+    // Get all sales docs for this rep in current month up to today
+    const repSales = [];
+    dailySalesSnap.docs.forEach(doc => {
+      const ds = doc.data();
+      if (ds.userId === rep.id && ds.date && ds.date.substring(0, 7) === currentMonthStr && ds.date <= todayStr) {
+        repSales.push(ds);
+      }
+    });
+
+    // For all working days (needed for both displayed days and the previous day for comparison)
+    allWorkingDays.forEach(wDay => {
+      // Calculate cumulative sales for each product from start of month up to wDay.isoDate
+      const productTotals = {};
+      repSales.forEach(ds => {
+        if (ds.date <= wDay.isoDate && ds.products) {
+          Object.entries(ds.products).forEach(([pId, val]) => {
+            if (validProductIds.has(pId)) {
+              productTotals[pId] = (productTotals[pId] || 0) + Number(val || 0);
+            }
+          });
+        }
+      });
+
+      // Count distinct products with cumulative sales > 0 (Consolidated Month Active Products)
+      const activeCount = Object.values(productTotals).filter(v => v > 0).length;
+      countsByRepAndDate[rep.id][wDay.isoDate] = activeCount;
+    });
+  });
+
+  // Calculate totals by date
+  allWorkingDays.forEach(wDay => {
+    totalsByDate[wDay.isoDate] = reps.reduce((sum, rep) => sum + (countsByRepAndDate[rep.id]?.[wDay.isoDate] || 0), 0);
+  });
+
+  const htmlBody = renderActiveProductsTrackerHtmlTable(
+    displayedDays,
+    allWorkingDays,
+    reps,
+    countsByRepAndDate,
+    totalsByDate,
+    todayStr
+  );
+
+  const payload = {
+    to: toRecipients,
+    subject: `[Varchaz] Daily Active Products Tracker - ${todayStr}`,
+    html: htmlBody,
+    text: `Varchaz Daily Active Products Tracker for ${todayStr}. Please view in an HTML-compatible client.`
+  };
+  if (ccRecipients.length > 0) {
+    payload.cc = ccRecipients;
+  }
+
+  try {
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+      body: JSON.stringify(payload)
+    });
+
+    const resData = await res.json().catch(() => ({}));
+    console.log(`Dispatched Active Products Tracker email to ${toRecipients.length} user(s) (CC: ${ccRecipients.length}):`, resData.message || 'Success');
+    return { success: true, count: 1 };
+  } catch (err) {
+    console.error('Error sending Active Products Tracker email:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 async function runProductGroupReports(overrideRecipient) {
   initializeFirebase();
   const db = admin.firestore();
@@ -1216,6 +1522,9 @@ async function runProductGroupReports(overrideRecipient) {
 
   let emailsDispatched = 0;
 
+  // ────────────────────────────────────────────────────────────
+  // EMAILS 1-4: PRODUCT GROUP MTD MIS EMAILS
+  // ────────────────────────────────────────────────────────────
   for (const gc of groupConfigs) {
     const groupProds = sortMisProducts(rawProducts.filter(gc.matcher));
     if (groupProds.length === 0) continue;
@@ -1247,20 +1556,127 @@ async function runProductGroupReports(overrideRecipient) {
     }
   }
 
+  // ────────────────────────────────────────────────────────────
+  // EMAIL 5: ACTIVE PRODUCTS TRACKER (Consolidated Monthly Active Products)
+  // ────────────────────────────────────────────────────────────
+  try {
+    const trackerResult = await dispatchActiveProductsTrackerMail({
+      rawProducts,
+      reps,
+      dailySalesSnap,
+      todayStr,
+      currentMonthStr,
+      istDate,
+      toRecipients,
+      ccRecipients,
+      apiUrl,
+      apiKey
+    });
+    if (trackerResult && trackerResult.success) {
+      emailsDispatched++;
+    }
+  } catch (err) {
+    console.error('Error sending Active Products Tracker email:', err.message);
+  }
+
   await db.collection('settings').doc('dailyReportConfig').set({
     lastProductGroupsSentAt: admin.firestore.FieldValue.serverTimestamp(),
     lastProductGroupsCount: emailsDispatched,
     lastStatus: 'success'
   }, { merge: true });
 
-  console.log(`Daily Product Group MIS execution completed. Dispatched ${emailsDispatched} email(s) across 4 groups.`);
+  console.log(`Daily Product Group MIS & Active Products Tracker execution completed. Dispatched ${emailsDispatched} email(s) across 4 groups + Active Products Tracker.`);
   return { success: true, count: emailsDispatched, date: todayStr };
+}
+
+async function runActiveProductsTrackerStandalone(overrideRecipient) {
+  initializeFirebase();
+  const db = admin.firestore();
+
+  const settingsDoc = await db.collection('settings').doc('dailyReportConfig').get();
+  const isEnabled = settingsDoc.exists ? settingsDoc.data()?.isEnabled === true : false;
+  if (!isEnabled && !process.env.FORCE_RUN && !overrideRecipient) {
+    console.log('Active Products Tracker is currently disabled in settings. Skipping execution.');
+    return { success: false, message: 'Reporting disabled in settings' };
+  }
+
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(now.getTime() + istOffset);
+  const todayStr = istDate.toISOString().split('T')[0];
+  const currentMonthStr = todayStr.substring(0, 7);
+
+  const holidayCheck = isNonWorkingDay(istDate);
+  if (holidayCheck.isExcluded && !process.env.FORCE_RUN && !overrideRecipient) {
+    console.log(`Skipping Active Products Tracker dispatch today (${todayStr}): Non-working day (${holidayCheck.reason}).`);
+    return { success: false, message: `Skipped: Non-working day (${holidayCheck.reason})` };
+  }
+
+  console.log(`Starting Daily Active Products Tracker dispatch for date: ${todayStr} (IST)...`);
+
+  const [productsSnap, usersSnap, dailySalesSnap] = await Promise.all([
+    db.collection('products').get(),
+    db.collection('users').where('status', '==', 'approved').get(),
+    db.collection('dailySales').get()
+  ]);
+
+  const rawProducts = productsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const allUsers = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const reps = allUsers.filter(u => u.role === 'user').sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+
+  let toRecipients = [];
+  let ccRecipients = [];
+  if (overrideRecipient) {
+    toRecipients = [overrideRecipient];
+  } else {
+    toRecipients = Array.from(new Set(
+      allUsers
+        .filter(u => u.role === 'user')
+        .map(u => (u.automailerEmail || u.email || '').trim().toLowerCase())
+        .filter(Boolean)
+    ));
+
+    ccRecipients = Array.from(new Set(
+      allUsers
+        .filter(u => u.role === 'supervisor')
+        .map(u => (u.automailerEmail || u.email || '').trim().toLowerCase())
+        .filter(Boolean)
+    ));
+  }
+
+  if (toRecipients.length === 0) {
+    console.log('No valid rep recipient emails found.');
+    return { success: false, message: 'No recipients found' };
+  }
+
+  const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
+  const apiKey = process.env.EMAIL_API_KEY;
+
+  return await dispatchActiveProductsTrackerMail({
+    rawProducts,
+    reps,
+    dailySalesSnap,
+    todayStr,
+    currentMonthStr,
+    istDate,
+    toRecipients,
+    ccRecipients,
+    apiUrl,
+    apiKey
+  });
 }
 
 if (require.main === module) {
   const isMorning = process.argv.includes('--morning');
+  const isTracker = process.argv.includes('--active-tracker') || process.argv.includes('--tracker');
   const isDailyGroups = process.argv.includes('--daily-groups') || process.argv.includes('--groups') || process.argv.includes('--evening');
-  const runner = isMorning ? runMorningUserNudgeCron : isDailyGroups ? runProductGroupReports : runDailyReportCron;
+  const runner = isMorning 
+    ? runMorningUserNudgeCron 
+    : isTracker 
+      ? runActiveProductsTrackerStandalone 
+      : isDailyGroups 
+        ? runProductGroupReports 
+        : runDailyReportCron;
   runner()
     .then(() => process.exit(0))
     .catch((err) => {
@@ -1269,4 +1685,10 @@ if (require.main === module) {
     });
 }
 
-module.exports = { runDailyReportCron, runMorningUserNudgeCron, runProductGroupReports };
+module.exports = { 
+  runDailyReportCron, 
+  runMorningUserNudgeCron, 
+  runProductGroupReports, 
+  runActiveProductsTrackerStandalone 
+};
+

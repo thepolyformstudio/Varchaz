@@ -8,7 +8,7 @@ on:
 
 jobs:
   send-daily-product-group-reports:
-    name: Generate and Dispatch 4 Product Group MTD MIS Emails
+    name: Generate and Dispatch 4 Product Group MIS & Active Products Tracker Emails
     runs-on: ubuntu-latest
 
     steps:
@@ -24,10 +24,11 @@ jobs:
       - name: Install Project Dependencies
         run: npm ci || npm install
 
-      - name: Execute Daily Product Group MIS Auto Mailer
+      - name: Execute Daily MIS & Active Products Tracker Auto Mailer
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           EMAIL_API_URL: ${{ secrets.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send' }}
           EMAIL_API_KEY: ${{ secrets.EMAIL_API_KEY }}
         run: node scripts/sendDailyReportCron.cjs --daily-groups
+
 
