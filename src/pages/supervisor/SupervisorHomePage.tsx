@@ -17,9 +17,10 @@ import { fetchMonthlySales } from '../../services/salesService';
 import { countPendingApprovals } from '../../services/approvalService';
 import { fetchCommitmentsForUsers } from '../../services/commitmentService';
 import { generateWhatsAppCommitmentAppreciationUrl } from '../../services/whatsappService';
-import { Users, Target, TrendingUp, UserCheck, BarChart3, AlertTriangle, ClipboardList, Package, CheckSquare, MessageCircle, CheckCircle2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { Users, Target, TrendingUp, UserCheck, BarChart3, AlertTriangle, ClipboardList, Package, CheckSquare, MessageCircle, CheckCircle2, ChevronDown, ChevronUp, Sparkles, Mail } from 'lucide-react';
 import type { AppUser, Product, ProductPerformance, DailyCommitment } from '../../types';
 import { PendingWhatsAppReminders } from '../../components/dashboard/PendingWhatsAppReminders';
+import { SendReportsModal } from '../../components/dashboard/SendReportsModal';
 
 export default function SupervisorHomePage() {
   const { appUser } = useAuth();
@@ -31,6 +32,7 @@ export default function SupervisorHomePage() {
   const [todayCommitments, setTodayCommitments] = useState<DailyCommitment[]>([]);
   const [expandedUserCommitment, setExpandedUserCommitment] = useState<string | null>(null);
   const [commitmentViewMode, setCommitmentViewMode] = useState<'consolidated' | 'userLevel'>('consolidated');
+  const [showSendReportsModal, setShowSendReportsModal] = useState(false);
 
   useEffect(() => { if (appUser) load(); }, [appUser]);
 
@@ -114,6 +116,23 @@ export default function SupervisorHomePage() {
       <PageHeader
         title={`${getGreeting()}, ${appUser.displayName.split(' ')[0]}`}
         subtitle="Team performance overview"
+        actions={
+          <button
+            className="btn btn-primary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontWeight: 600,
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+            }}
+            onClick={() => setShowSendReportsModal(true)}
+            id="btn-send-reports"
+          >
+            <Mail size={16} />
+            <span>Send Reports</span>
+          </button>
+        }
       />
 
       <PendingWhatsAppReminders />
@@ -143,6 +162,15 @@ export default function SupervisorHomePage() {
 
       {/* Quick Actions */}
       <div className="quick-actions">
+        <a 
+          className="quick-action-btn" 
+          onClick={() => setShowSendReportsModal(true)}
+          style={{ cursor: 'pointer' }}
+          id="quick-action-send-reports"
+        >
+          <div className="action-icon" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}><Mail size={20} /></div>
+          <span className="action-label" style={{ fontWeight: 600 }}>Send Reports</span>
+        </a>
         <a className="quick-action-btn" onClick={() => navigate('/supervisor/day')}>
           <div className="action-icon"><BarChart3 size={20} /></div>
           <span className="action-label">Day View</span>
@@ -473,6 +501,21 @@ export default function SupervisorHomePage() {
           exportFileName={`Team_MTD_${getCurrentMonth()}`}
         />
       </div>
+
+      {/* Manual 4+1 Automailer Trigger Modal */}
+      {showSendReportsModal && (
+        <SendReportsModal
+          isOpen={showSendReportsModal}
+          onClose={() => setShowSendReportsModal(false)}
+          supervisorUser={{
+            uid: appUser.uid,
+            displayName: appUser.displayName,
+            email: appUser.email,
+            automailerEmail: appUser.automailerEmail
+          }}
+          teamMembersCount={teamUsers.length}
+        />
+      )}
     </div>
   );
 }

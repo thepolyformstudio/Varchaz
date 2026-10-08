@@ -298,3 +298,62 @@ export function getWeekDates(weekOffset = 0, refDate = new Date()): { weekStart:
   };
 }
 
+/**
+ * Get the previous working day in IST prior to the given reference date (or today).
+ * Steps backwards 1 day at a time until a day is found where isNonWorkingDay(d).isExcluded is false.
+ */
+export function getPreviousWorkingDay(refDate = new Date()): { dateStr: string; dateObj: Date; formattedDisplay: string } {
+  const d = getISTDate(refDate);
+  // Step back 1 day first
+  d.setDate(d.getDate() - 1);
+  while (isNonWorkingDay(d).isExcluded) {
+    d.setDate(d.getDate() - 1);
+  }
+  const dateStr = formatDate(d);
+  return {
+    dateStr,
+    dateObj: d,
+    formattedDisplay: displayDate(dateStr)
+  };
+}
+
+/**
+ * Get the effective cutoff date for MIS reporting based on the 6:00 PM IST rule:
+ * - If before 18:00 IST (6:00 PM): Cutoff is previous working day (today excluded).
+ * - If at or after 18:00 IST: Cutoff is today (today included).
+ */
+export function getReportingCutoffInfo(refDate = new Date()): {
+  isPriorWorkingDay: boolean;
+  effectiveDateStr: string;
+  effectiveDateDisplay: string;
+  todayStr: string;
+  istHour: number;
+  istMinute: number;
+} {
+  const ist = getISTDate(refDate);
+  const istHour = ist.getHours();
+  const istMinute = ist.getMinutes();
+  const todayStr = formatDate(ist);
+
+  if (istHour < 18) {
+    const prev = getPreviousWorkingDay(refDate);
+    return {
+      isPriorWorkingDay: true,
+      effectiveDateStr: prev.dateStr,
+      effectiveDateDisplay: prev.formattedDisplay,
+      todayStr,
+      istHour,
+      istMinute
+    };
+  }
+
+  return {
+    isPriorWorkingDay: false,
+    effectiveDateStr: todayStr,
+    effectiveDateDisplay: displayDate(todayStr),
+    todayStr,
+    istHour,
+    istMinute
+  };
+}
+

@@ -113,3 +113,12 @@
 - **Strict HTTP Error Handling**: Replaced silent `fetch()` calls in `scripts/sendDailyReportCron.cjs` and `functions/src/index.ts` with `sendEmailViaMicroservice()` enforcing `if (!res.ok) throw new Error(...)`, ensuring 4xx/5xx status codes fail loudly and are never misreported as "Success".
 - **API Key Fallback Guard**: Added fallback to default microservice key (`your_super_secret_api_key_here`) across cron scripts, Cloud Functions, and GitHub Actions workflows to prevent silent 401 Unauthorized failures when GitHub repo secret `EMAIL_API_KEY` is not present.
 - **CLI On-Demand Recipient Support**: Added `--recipient <email>` / `--to <email>` flag to `scripts/sendDailyReportCron.cjs` to allow manual testing to specific inboxes without affecting production distribution lists.
+
+## 10. Supervisor Manual Trigger for Daily 4+1 MIS Reports ("Send Reports")
+- **Action Button**: Added "Send Reports" button to `SupervisorHomePage.tsx` header (`PageHeader actions`) and quick-actions grid.
+- **Single-Click Modal**: Interactive modal (`SendReportsModal.tsx`) showing live IST time, cutoff notice, report breakdown, recipient policy preview, and real-time step-by-step progress during dispatch.
+- **6:00 PM IST Cut-off Rule**:
+  - **Triggered before 6:00 PM IST (< 18:00 Asia/Kolkata)**: Today's incomplete sales data is strictly excluded (`ds.date <= previousWorkingDate`). Automatically calculates the previous working day (skipping Sundays, 2nd Saturdays, and 4th Saturdays). Email subjects and headers reflect `(As of [Date] / Prior Working Day)`.
+  - **Triggered at or after 6:00 PM IST (>= 18:00 Asia/Kolkata)**: Full End-of-Day Month-to-Date data including today is dispatched (`ds.date <= todayStr`).
+- **Synchronized Cutoff Engine**: Implemented `getReportingCutoffInfo` and `getPreviousWorkingDay` across `src/utils/dateUtils.ts`, `src/services/reportService.ts`, `scripts/sendDailyReportCron.cjs`, and `functions/src/index.ts`.
+- **Strict Recipient Routing**: TO active team members (`role === 'user'`), CC supervisor (`role === 'supervisor'`). Admins and Viewers strictly excluded.

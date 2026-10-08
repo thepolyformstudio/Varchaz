@@ -930,6 +930,49 @@ function isLastWorkingDayOfWeek(dateObj: Date): { isLastWorkingDay: boolean; rea
   return { isLastWorkingDay: false, reason: 'Midweek day' };
 }
 
+/** Get the previous working day in IST prior to the given reference date (or today). */
+function getPreviousWorkingDay(refDate: Date): Date {
+  const d = new Date(refDate);
+  d.setDate(d.getDate() - 1);
+  while (isNonWorkingDay(d).isExcluded) {
+    d.setDate(d.getDate() - 1);
+  }
+  return d;
+}
+
+/**
+ * Get reporting cutoff date based on 6:00 PM IST (18:00) rule:
+ * - If before 18:00 IST: cutoff is previous working day, today is strictly excluded.
+ * - If at or after 18:00 IST: cutoff is today.
+ */
+function getReportingCutoffInfo(istDate: Date) {
+  const istHour = istDate.getUTCHours();
+  const istMinute = istDate.getUTCMinutes();
+  const todayStr = istDate.toISOString().split('T')[0];
+
+  if (istHour < 18) {
+    const prev = getPreviousWorkingDay(istDate);
+    const prevStr = prev.toISOString().split('T')[0];
+    return {
+      isPriorWorkingDay: true,
+      effectiveDateStr: prevStr,
+      effectiveDateObj: prev,
+      todayStr,
+      istHour,
+      istMinute
+    };
+  }
+
+  return {
+    isPriorWorkingDay: false,
+    effectiveDateStr: todayStr,
+    effectiveDateObj: istDate,
+    todayStr,
+    istHour,
+    istMinute
+  };
+}
+
 // ──────────────────────────────────────────────────
 // 7. Scheduled Weekly MTD Cloud Function (9:00 PM IST / 21:00 Asia/Kolkata on Last Working Day of Week)
 // ──────────────────────────────────────────────────
@@ -1143,8 +1186,11 @@ async function generateAndSendProductGroupReports(overrideRecipient?: string) {
   const now = new Date();
   const istOffset = 5.5 * 60 * 60 * 1000;
   const istDate = new Date(now.getTime() + istOffset);
-  const todayStr = istDate.toISOString().split('T')[0];
-  const currentMonthStr = todayStr.substring(0, 7);
+  const cutoff = getReportingCutoffInfo(istDate);
+  const effectiveDateStr = cutoff.effectiveDateStr;
+  const todayStr = cutoff.todayStr;
+  const isPriorWorkingDay = cutoff.isPriorWorkingDay;
+  const currentMonthStr = effectiveDateStr.substring(0, 7);
 
   const holidayCheck = isNonWorkingDay(istDate);
   if (holidayCheck.isExcluded && !overrideRecipient) {
@@ -1152,7 +1198,11 @@ async function generateAndSendProductGroupReports(overrideRecipient?: string) {
     return { success: false, message: `Skipped: Non-working day (${holidayCheck.reason})` };
   }
 
-  console.log(`Starting Daily Product Group MTD MIS dispatch for date: ${todayStr} (IST)...`);
+  if (isPriorWorkingDay) {
+    console.log(`[Cutoff Notice] Current time is before 6:00 PM IST (${cutoff.istHour}:${String(cutoff.istMinute).padStart(2, '0')} IST). Dispatching data up to previous working day (${effectiveDateStr}). Today's entries (${todayStr}) excluded.`);
+  } else {
+    console.log(`Starting Daily Product Group MTD MIS dispatch for date: ${effectiveDateStr} (IST)...`);
+  }
 
   const [productsSnap, usersSnap, dailySalesSnap] = await Promise.all([
     db.collection('products').get(),
@@ -1195,7 +1245,7 @@ async function generateAndSendProductGroupReports(overrideRecipient?: string) {
   const mtdSalesByUser: Record<string, Record<string, number>> = {};
   dailySalesSnap.docs.forEach(doc => {
     const ds = doc.data() as any;
-    if (ds.date && ds.date.substring(0, 7) === currentMonthStr && ds.date <= todayStr && ds.userId) {
+    if (ds.date && ds.date.substring(0, 7) === currentMonthStr && ds.date <= effectiveDateStr && ds.userId) {
       if (!mtdSalesByUser[ds.userId]) mtdSalesByUser[ds.userId] = {};
       Object.entries(ds.products || {}).forEach(([pId, val]) => {
         mtdSalesByUser[ds.userId][pId] = (mtdSalesByUser[ds.userId][pId] || 0) + Number(val || 0);
@@ -1234,13 +1284,17 @@ async function generateAndSendProductGroupReports(overrideRecipient?: string) {
     const groupProds = sortMisProducts(rawProducts.filter(gc.matcher));
     if (groupProds.length === 0) continue;
 
-    const htmlBody = renderProductGroupMisHtmlTable(gc.name, groupProds, reps, mtdSalesByUser, todayStr);
+    const htmlBody = renderProductGroupMisHtmlTable(gc.name, groupProds, reps, mtdSalesByUser, effectiveDateStr);
+
+    const subjectTag = isPriorWorkingDay 
+      ? `(As of ${effectiveDateStr} / Prior Working Day)`
+      : `(${effectiveDateStr})`;
 
     const payload: any = {
       to: toRecipients,
-      subject: `[Varchaz] Daily MTD Performance MIS - ${gc.name} (${todayStr})`,
+      subject: `[Varchaz] Daily MTD Performance MIS - ${gc.name} ${subjectTag}`,
       html: htmlBody,
-      text: `Varchaz Daily MTD Performance MIS for ${gc.name} (${todayStr}). Please view in an HTML-compatible client.`
+      text: `Varchaz Daily MTD Performance MIS for ${gc.name} ${subjectTag}. Please view in an HTML-compatible client.`
     };
     if (ccRecipients.length > 0) {
       payload.cc = ccRecipients;
@@ -1268,7 +1322,7 @@ async function generateAndSendProductGroupReports(overrideRecipient?: string) {
     lastStatus: 'success'
   }, { merge: true });
 
-  return { success: true, count: emailsDispatched, date: todayStr };
+  return { success: true, count: emailsDispatched, date: effectiveDateStr };
 }
 
 // Scheduled Daily Product Group MIS at 9:00 PM IST (21:00 Asia/Kolkata)
