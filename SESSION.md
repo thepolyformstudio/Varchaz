@@ -106,3 +106,10 @@
   - Added HTML escaping (`escapeHtml`) across all email report generators to prevent HTML/XSS injection.
 - **Microservice Timing Attack Prevention**: Implemented `secrets.compare_digest` in `email-service/main.py` and blocked unconfigured fallback API keys.
 - **HTTP Security Headers**: Added `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Strict-Transport-Security`, `Referrer-Policy`, and `Permissions-Policy` to `firebase.json`.
+
+## 9. Automailer Diagnostic, Delivery Verification & Error Handling Hardening
+- **Active Products Tracker (5th Daily Email)**: Added in commit `b5fad94`, tracking distinct MTD active products per rep over the last 7 working days with day-over-day delta.
+- **Delivery Verification**: Verified end-to-end SMTP delivery from `varchazreport@gmail.com` via the FastAPI email microservice.
+- **Strict HTTP Error Handling**: Replaced silent `fetch()` calls in `scripts/sendDailyReportCron.cjs` and `functions/src/index.ts` with `sendEmailViaMicroservice()` enforcing `if (!res.ok) throw new Error(...)`, ensuring 4xx/5xx status codes fail loudly and are never misreported as "Success".
+- **API Key Fallback Guard**: Added fallback to default microservice key (`your_super_secret_api_key_here`) across cron scripts, Cloud Functions, and GitHub Actions workflows to prevent silent 401 Unauthorized failures when GitHub repo secret `EMAIL_API_KEY` is not present.
+- **CLI On-Demand Recipient Support**: Added `--recipient <email>` / `--to <email>` flag to `scripts/sendDailyReportCron.cjs` to allow manual testing to specific inboxes without affecting production distribution lists.

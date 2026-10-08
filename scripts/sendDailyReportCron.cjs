@@ -5,6 +5,27 @@
 const admin = require('firebase-admin');
 const XLSX = require('xlsx');
 
+const DEFAULT_EMAIL_API_KEY = 'your_super_secret_api_key_here';
+const DEFAULT_EMAIL_API_URL = 'https://varchaz-email-api-sigma.vercel.app/send';
+
+async function sendEmailViaMicroservice(apiUrl, apiKey, payload) {
+  const targetUrl = apiUrl || DEFAULT_EMAIL_API_URL;
+  const targetKey = apiKey || DEFAULT_EMAIL_API_KEY;
+
+  const res = await fetch(targetUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': targetKey },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Email microservice error (${res.status}): ${errText}`);
+  }
+
+  return await res.json().catch(() => ({}));
+}
+
 function initializeFirebase() {
   if (admin.apps.length > 0) return;
 
@@ -12,7 +33,9 @@ function initializeFirebase() {
   if (!serviceAccountJson) {
     // If running in an environment with Application Default Credentials (e.g., GCP / Cloud Functions)
     try {
-      admin.initializeApp();
+      admin.initializeApp({
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'varchaz'
+      });
       console.log('Initializing Firebase Admin with Application Default Credentials...');
       return;
     } catch (err) {
@@ -363,8 +386,8 @@ async function runDailyReportCron() {
     }
   });
 
-  const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-  const apiKey = process.env.EMAIL_API_KEY;
+  const apiUrl = process.env.EMAIL_API_URL || DEFAULT_EMAIL_API_URL;
+  const apiKey = process.env.EMAIL_API_KEY || DEFAULT_EMAIL_API_KEY;
 
   let totalEmailsDispatched = 0;
   const supervisors = allUsers.filter(u => u.role === 'supervisor');
@@ -544,24 +567,19 @@ async function runDailyReportCron() {
       `;
 
       try {
-        const res = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-          body: JSON.stringify({
-            to: consRecipients,
-            subject: `[Varchaz] Consolidated Team Daily Report - MTD & YTD (${todayStr})`,
-            html: htmlConsBody,
-            text: `Varchaz Consolidated Daily Report (${todayStr}). Please view MTD in body and attached Excel for YTD.`,
-            attachments: [
-              {
-                filename: `Varchaz_Consolidated_Daily_Report_${todayStr}.xlsx`,
-                content: base64ExcelCons,
-                content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-              }
-            ]
-          })
+        const resData = await sendEmailViaMicroservice(apiUrl, apiKey, {
+          to: consRecipients,
+          subject: `[Varchaz] Consolidated Team Daily Report - MTD & YTD (${todayStr})`,
+          html: htmlConsBody,
+          text: `Varchaz Consolidated Daily Report (${todayStr}). Please view MTD in body and attached Excel for YTD.`,
+          attachments: [
+            {
+              filename: `Varchaz_Consolidated_Daily_Report_${todayStr}.xlsx`,
+              content: base64ExcelCons,
+              content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            }
+          ]
         });
-        const resData = await res.json();
         console.log(`Consolidated email sent to ${consRecipients.length} recipient(s):`, resData.message || 'Success');
         totalEmailsDispatched++;
       } catch (err) {
@@ -720,25 +738,20 @@ async function runDailyReportCron() {
       `;
 
       try {
-        const res = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-          body: JSON.stringify({
-            to: userTargetEmail,
-            cc: supAutomailerEmail,
-            subject: `[Varchaz] Daily Performance Report - ${member.displayName} (${todayStr})`,
-            html: htmlUserBody,
-            text: `Varchaz Daily Report for ${member.displayName} (${todayStr}). Please view MTD in body and attached Excel for YTD.`,
-            attachments: [
-              {
-                filename: `Varchaz_Daily_Report_${member.displayName.replace(/\s+/g, '_')}_${todayStr}.xlsx`,
-                content: base64ExcelUser,
-                content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-              }
-            ]
-          })
+        const resData = await sendEmailViaMicroservice(apiUrl, apiKey, {
+          to: userTargetEmail,
+          cc: supAutomailerEmail,
+          subject: `[Varchaz] Daily Performance Report - ${member.displayName} (${todayStr})`,
+          html: htmlUserBody,
+          text: `Varchaz Daily Report for ${member.displayName} (${todayStr}). Please view MTD in body and attached Excel for YTD.`,
+          attachments: [
+            {
+              filename: `Varchaz_Daily_Report_${member.displayName.replace(/\s+/g, '_')}_${todayStr}.xlsx`,
+              content: base64ExcelUser,
+              content_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            }
+          ]
         });
-        const resData = await res.json();
         console.log(`Individual email sent to ${userTargetEmail} (CC: ${supAutomailerEmail}):`, resData.message || 'Success');
         totalEmailsDispatched++;
       } catch (err) {
@@ -820,8 +833,8 @@ async function runMorningUserNudgeCron() {
     }
   });
 
-  const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-  const apiKey = process.env.EMAIL_API_KEY;
+  const apiUrl = process.env.EMAIL_API_URL || DEFAULT_EMAIL_API_URL;
+  const apiKey = process.env.EMAIL_API_KEY || DEFAULT_EMAIL_API_KEY;
 
   let count = 0;
 
@@ -953,12 +966,7 @@ async function runMorningUserNudgeCron() {
         payload.cc = supAutomailerEmail;
       }
 
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-        body: JSON.stringify(payload)
-      });
-      const resData = await res.json();
+      const resData = await sendEmailViaMicroservice(apiUrl, apiKey, payload);
       console.log(`Morning nudge sent to ${userTargetEmail}${supAutomailerEmail ? ` (CC: ${supAutomailerEmail})` : ''}:`, resData.message || 'Success');
       count++;
     } catch (err) {
@@ -1404,13 +1412,7 @@ async function dispatchActiveProductsTrackerMail({
   }
 
   try {
-    const res = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-      body: JSON.stringify(payload)
-    });
-
-    const resData = await res.json().catch(() => ({}));
+    const resData = await sendEmailViaMicroservice(apiUrl, apiKey, payload);
     console.log(`Dispatched Active Products Tracker email to ${toRecipients.length} user(s) (CC: ${ccRecipients.length}):`, resData.message || 'Success');
     return { success: true, count: 1 };
   } catch (err) {
@@ -1517,8 +1519,8 @@ async function runProductGroupReports(overrideRecipient) {
     }
   ];
 
-  const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-  const apiKey = process.env.EMAIL_API_KEY;
+  const apiUrl = process.env.EMAIL_API_URL || DEFAULT_EMAIL_API_URL;
+  const apiKey = process.env.EMAIL_API_KEY || DEFAULT_EMAIL_API_KEY;
 
   let emailsDispatched = 0;
 
@@ -1542,13 +1544,7 @@ async function runProductGroupReports(overrideRecipient) {
     }
 
     try {
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-        body: JSON.stringify(payload)
-      });
-
-      const resData = await res.json().catch(() => ({}));
+      const resData = await sendEmailViaMicroservice(apiUrl, apiKey, payload);
       console.log(`Dispatched ${gc.name} email to ${toRecipients.length} user(s) (CC: ${ccRecipients.length}):`, resData.message || 'Success');
       emailsDispatched++;
     } catch (err) {
@@ -1649,8 +1645,8 @@ async function runActiveProductsTrackerStandalone(overrideRecipient) {
     return { success: false, message: 'No recipients found' };
   }
 
-  const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-  const apiKey = process.env.EMAIL_API_KEY;
+  const apiUrl = process.env.EMAIL_API_URL || DEFAULT_EMAIL_API_URL;
+  const apiKey = process.env.EMAIL_API_KEY || DEFAULT_EMAIL_API_KEY;
 
   return await dispatchActiveProductsTrackerMail({
     rawProducts,
@@ -1670,6 +1666,9 @@ if (require.main === module) {
   const isMorning = process.argv.includes('--morning');
   const isTracker = process.argv.includes('--active-tracker') || process.argv.includes('--tracker');
   const isDailyGroups = process.argv.includes('--daily-groups') || process.argv.includes('--groups') || process.argv.includes('--evening');
+  const recipientIdx = process.argv.findIndex(arg => arg === '--recipient' || arg === '--to');
+  const overrideRecipient = recipientIdx !== -1 && process.argv[recipientIdx + 1] ? process.argv[recipientIdx + 1] : undefined;
+
   const runner = isMorning 
     ? runMorningUserNudgeCron 
     : isTracker 
@@ -1677,7 +1676,7 @@ if (require.main === module) {
       : isDailyGroups 
         ? runProductGroupReports 
         : runDailyReportCron;
-  runner()
+  runner(overrideRecipient)
     .then(() => process.exit(0))
     .catch((err) => {
       console.error('Cron Execution Error:', err);

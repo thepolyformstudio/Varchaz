@@ -1226,7 +1226,7 @@ async function generateAndSendProductGroupReports(overrideRecipient?: string) {
   ];
 
   const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-  const apiKey = process.env.EMAIL_API_KEY || '';
+  const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
 
   let emailsDispatched = 0;
 
@@ -1247,11 +1247,15 @@ async function generateAndSendProductGroupReports(overrideRecipient?: string) {
     }
 
     try {
-      await fetch(apiUrl, {
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`Email microservice returned HTTP ${res.status}: ${errText}`);
+      }
       emailsDispatched++;
     } catch (err: any) {
       console.error(`Error sending ${gc.name} report email:`, err.message);
@@ -1354,7 +1358,7 @@ async function generateAndSendMorningUserNudges(overrideRecipient?: string) {
   });
 
   const apiUrl = process.env.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send';
-  const apiKey = process.env.EMAIL_API_KEY || '';
+  const apiKey = process.env.EMAIL_API_KEY || 'your_super_secret_api_key_here';
 
   // Guard: Verify if automated morning nudges are enabled before emailing users and supervisors
   const settingsDoc = await db.collection('settings').doc('dailyReportConfig').get();
@@ -1495,13 +1499,20 @@ async function generateAndSendMorningUserNudges(overrideRecipient?: string) {
       payload.cc = supervisorCcEmail;
     }
 
-    await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-      body: JSON.stringify(payload)
-    });
-
-    emailsDispatched++;
+    try {
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`Email microservice returned HTTP ${res.status}: ${errText}`);
+      }
+      emailsDispatched++;
+    } catch (err: any) {
+      console.error(`Error sending morning nudge to ${userTargetEmail}:`, err.message);
+    }
   }
 
   return { success: true, count: emailsDispatched, date: todayStr };

@@ -28,5 +28,5 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           EMAIL_API_URL: ${{ secrets.EMAIL_API_URL || 'https://varchaz-email-api-sigma.vercel.app/send' }}
-          EMAIL_API_KEY: ${{ secrets.EMAIL_API_KEY }}
+          EMAIL_API_KEY: ${{ secrets.EMAIL_API_KEY || 'your_super_secret_api_key_here' }}
         run: node scripts/sendDailyReportCron.cjs --morning
